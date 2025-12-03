@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail } from "lucide-react";
 import { toast } from "sonner";
 import logoNewStandard from '@/assets/logo-newstandard.png';
+import { EMAIL_REDIRECTS } from "@/config/emailRedirects";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const ForgotPassword = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://newacademy.newstandard.com.br/new-senha',
+        redirectTo: EMAIL_REDIRECTS.passwordReset,
       });
 
       if (error) throw error;
