@@ -13,7 +13,6 @@ import { Trash2, Edit, Plus, Users } from 'lucide-react';
 type Group = {
   id: string;
   name: string;
-  description: string | null;
   leader_id: string | null;
   leader_name?: string;
   member_count?: number;
@@ -38,7 +37,6 @@ export function AdminGroupsTab() {
 
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     leader_id: '',
   });
 
@@ -54,7 +52,6 @@ export function AdminGroupsTab() {
         .select(`
           id,
           name,
-          description,
           leader_id
         `)
         .order('name');
@@ -187,7 +184,6 @@ export function AdminGroupsTab() {
           .from('groups')
           .update({
             name: formData.name,
-            description: formData.description,
             leader_id: formData.leader_id,
           })
           .eq('id', selectedGroup.id);
@@ -203,7 +199,6 @@ export function AdminGroupsTab() {
       } else {
         const { error } = await supabase.from('groups').insert({
           name: formData.name,
-          description: formData.description,
           leader_id: formData.leader_id,
         });
 
@@ -272,7 +267,6 @@ export function AdminGroupsTab() {
     setSelectedGroup(group);
     setFormData({
       name: group.name,
-      description: group.description || '',
       leader_id: group.leader_id || '',
     });
     setDialogOpen(true);
@@ -343,7 +337,6 @@ export function AdminGroupsTab() {
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
       leader_id: '',
     });
     setSelectedGroup(null);
@@ -382,16 +375,6 @@ export function AdminGroupsTab() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
                 />
               </div>
               <div>
@@ -435,11 +418,6 @@ export function AdminGroupsTab() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col gap-4">
-              {group.description && (
-                <p className="text-sm text-muted-foreground">
-                  {group.description}
-                </p>
-              )}
               <div className="flex flex-col gap-2 mt-auto">
                 <Button
                   variant="outline"

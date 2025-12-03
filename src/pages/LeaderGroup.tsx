@@ -8,7 +8,6 @@ import { Users } from 'lucide-react';
 type Group = {
   id: string;
   name: string;
-  description: string | null;
 };
 
 type Member = {
@@ -37,9 +36,9 @@ export default function LeaderGroup() {
       // Get the group where user is the leader
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .select('id, name, description')
+        .select('id, name')
         .eq('leader_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (groupError) throw groupError;
 
@@ -100,9 +99,6 @@ export default function LeaderGroup() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>{group.name}</CardTitle>
-          {group.description && (
-            <CardDescription>{group.description}</CardDescription>
-          )}
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-muted-foreground">
