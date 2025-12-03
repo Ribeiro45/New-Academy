@@ -218,62 +218,6 @@ export type Database = {
           },
         ]
       }
-      group_members: {
-        Row: {
-          group_id: string
-          id: string
-          joined_at: string | null
-          user_id: string
-        }
-        Insert: {
-          group_id: string
-          id?: string
-          joined_at?: string | null
-          user_id: string
-        }
-        Update: {
-          group_id?: string
-          id?: string
-          joined_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      groups: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          leader_id: string | null
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          leader_id?: string | null
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          leader_id?: string | null
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       lessons: {
         Row: {
           course_id: string | null
@@ -370,6 +314,7 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          sexual_orientation: string | null
           updated_at: string | null
           user_type: string | null
         }
@@ -382,6 +327,7 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
+          sexual_orientation?: string | null
           updated_at?: string | null
           user_type?: string | null
         }
@@ -394,6 +340,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          sexual_orientation?: string | null
           updated_at?: string | null
           user_type?: string | null
         }
@@ -769,25 +716,18 @@ export type Database = {
         Returns: undefined
       }
       generate_certificate_number: { Args: never; Returns: string }
-      get_user_led_group: { Args: { _user_id: string }; Returns: string }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_group_leader: {
-        Args: { _group_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_is_in_group: {
-        Args: { _group_id: string; _user_id: string }
-        Returns: boolean
-      }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { _arg1: string; _arg2: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user" | "editor" | "admin_master" | "lider"
+      app_role: "admin" | "user" | "editor" | "lider"
       course_target: "colaborador" | "cliente" | "both"
     }
     CompositeTypes: {
@@ -916,7 +856,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "editor", "admin_master", "lider"],
+      app_role: ["admin", "user", "editor", "lider"],
       course_target: ["colaborador", "cliente", "both"],
     },
   },
