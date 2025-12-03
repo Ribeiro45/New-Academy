@@ -7,31 +7,36 @@ import { BookOpen, Award, TrendingUp, Users, ChevronRight, Play, Moon, Sun } fro
 import { useTheme } from "@/hooks/useTheme";
 import logoN from "@/assets/logo-n.png";
 import logoNWhite from "@/assets/logo-n-white.png";
-
 const Index = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const { isDarkMode, toggleTheme } = useTheme();
+  const {
+    isDarkMode,
+    toggleTheme
+  } = useTheme();
   const [settings, setSettings] = useState({
     hero: {
       badge_text: "NewWar - Plataforma de Aprendizado",
       title_line1: "Transforme seu",
       title_line2: "Conhecimento",
       description: "Acesse cursos de alta qualidade, acompanhe seu progresso e obtenha certificados reconhecidos.",
-      video_url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      video_url: "https://www.youtube.com/embed/dQw4w9WgXcQ"
     },
     features: {
       section_title: "Por que escolher nossa plataforma?",
-      section_subtitle: "Recursos poderosos para acelerar seu aprendizado",
+      section_subtitle: "Recursos poderosos para acelerar seu aprendizado"
     },
     cta: {
       title: "Pronto para começar?",
-      description: "Junte-se a centenas de colaboradores que já estão transformando suas carreiras",
-    },
+      description: "Junte-se a centenas de colaboradores que já estão transformando suas carreiras"
+    }
   });
-
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({
+      data: {
+        session
+      }
+    }) => {
       if (session) {
         navigate("/dashboard");
       } else {
@@ -41,67 +46,55 @@ const Index = () => {
 
     // Fetch site settings
     const fetchSettings = async () => {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("setting_key, setting_value")
-        .in("setting_key", ["homepage_hero", "homepage_features", "homepage_cta"]);
-
+      const {
+        data
+      } = await supabase.from("site_settings").select("setting_key, setting_value").in("setting_key", ["homepage_hero", "homepage_features", "homepage_cta"]);
       if (data) {
         const settingsMap: any = {};
-        data.forEach((item) => {
+        data.forEach(item => {
           if (item.setting_key === "homepage_hero") settingsMap.hero = item.setting_value;
           if (item.setting_key === "homepage_features") settingsMap.features = item.setting_value;
           if (item.setting_key === "homepage_cta") settingsMap.cta = item.setting_value;
         });
         if (Object.keys(settingsMap).length > 0) {
-          setSettings((prev) => ({ ...prev, ...settingsMap }));
+          setSettings(prev => ({
+            ...prev,
+            ...settingsMap
+          }));
         }
       }
     };
     fetchSettings();
   }, [navigate]);
-
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+    return <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+      </div>;
   }
-
-  const features = [
-    {
-      icon: BookOpen,
-      title: "Cursos Completos",
-      description: "Acesse uma biblioteca completa de cursos em vídeo",
-    },
-    {
-      icon: TrendingUp,
-      title: "Acompanhe seu Progresso",
-      description: "Monitore seu desenvolvimento em tempo real",
-    },
-    {
-      icon: Award,
-      title: "Certificados",
-      description: "Receba certificados ao concluir os cursos",
-    },
-    {
-      icon: Users,
-      title: "Aprendizado Colaborativo",
-      description: "Aprenda junto com outros colaboradores",
-    },
-  ];
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted">
+  const features = [{
+    icon: BookOpen,
+    title: "Cursos Completos",
+    description: "Acesse uma biblioteca completa de cursos em vídeo"
+  }, {
+    icon: TrendingUp,
+    title: "Acompanhe seu Progresso",
+    description: "Monitore seu desenvolvimento em tempo real"
+  }, {
+    icon: Award,
+    title: "Certificados",
+    description: "Receba certificados ao concluir os cursos"
+  }, {
+    icon: Users,
+    title: "Aprendizado Colaborativo",
+    description: "Aprenda junto com outros colaboradores"
+  }];
+  return <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted">
       {/* Header */}
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={isDarkMode ? logoNWhite : logoN} alt="NewWar" className="h-8 w-8 object-contain" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              NewWar
-            </span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">New Academy</span>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
@@ -148,13 +141,7 @@ const Index = () => {
             <Card className="relative border-2 border-border/50 backdrop-blur-sm bg-card/50 overflow-hidden">
               <CardContent className="p-0">
                 <div className="aspect-video relative group">
-                  <iframe
-                    className="w-full h-full rounded-lg"
-                    src={settings.hero.video_url}
-                    title="Vídeo Demonstração"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
+                  <iframe className="w-full h-full rounded-lg" src={settings.hero.video_url} title="Vídeo Demonstração" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
                 </div>
                 <div className="p-6 space-y-2">
@@ -177,12 +164,9 @@ const Index = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature, index) => (
-            <Card
-              key={index}
-              className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-border/50 animate-fade-in"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
+          {features.map((feature, index) => <Card key={index} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-border/50 animate-fade-in" style={{
+          animationDelay: `${index * 100}ms`
+        }}>
               <CardContent className="p-6 space-y-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary-glow/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <feature.icon className="w-6 h-6 text-primary" />
@@ -190,8 +174,7 @@ const Index = () => {
                 <h3 className="text-xl font-semibold">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
               </CardContent>
-            </Card>
-          ))}
+            </Card>)}
         </div>
       </section>
 
@@ -216,14 +199,12 @@ const Index = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img src={isDarkMode ? logoNWhite : logoN} alt="NewWar" className="h-6 w-6 object-contain" />
-              <span className="font-semibold">NewWar</span>
+              <span className="font-semibold">New Academy</span>
             </div>
-            <p className="text-sm text-muted-foreground">© 2025 NewWar. Todos os direitos reservados.</p>
+            <p className="text-sm text-muted-foreground">© 2025 New Academy. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
