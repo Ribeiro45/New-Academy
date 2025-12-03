@@ -191,37 +191,96 @@ function AdminQuizzes() {
     setDeleteDialogOpen(true);
   };
 
+  const deleteQuizData = async (quizId: string) => {
+    // Get all attempts for this quiz
+    const { data: attempts } = await supabase
+      .from('user_quiz_attempts')
+      .select('id')
+      .eq('quiz_id', quizId);
+    
+    if (attempts && attempts.length > 0) {
+      const attemptIds = attempts.map(a => a.id);
+      // Delete quiz responses
+      await supabase.from('user_quiz_responses').delete().in('attempt_id', attemptIds);
+    }
+    
+    // Delete quiz attempts
+    await supabase.from('user_quiz_attempts').delete().eq('quiz_id', quizId);
+    
+    // Get all questions for this quiz
+    const { data: questions } = await supabase
+      .from('quiz_questions')
+      .select('id')
+      .eq('quiz_id', quizId);
+    
+    if (questions && questions.length > 0) {
+      const questionIds = questions.map(q => q.id);
+      // Delete quiz answers
+      await supabase.from('quiz_answers').delete().in('question_id', questionIds);
+    }
+    
+    // Delete quiz questions
+    await supabase.from('quiz_questions').delete().eq('quiz_id', quizId);
+    
+    // Delete quiz
+    const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
+    return error;
+  };
+
+  const deleteQuestionData = async (questionId: string) => {
+    // Delete answers for this question
+    await supabase.from('quiz_answers').delete().eq('question_id', questionId);
+    
+    // Delete user responses for this question
+    await supabase.from('user_quiz_responses').delete().eq('question_id', questionId);
+    
+    // Delete question
+    const { error } = await supabase.from('quiz_questions').delete().eq('id', questionId);
+    return error;
+  };
+
   const confirmDelete = async () => {
     if (!deletingItem) return;
 
-    if (deletingItem.type === 'quiz') {
-      const { error } = await supabase.from('quizzes').delete().eq('id', deletingItem.id);
-      if (error) {
-        toast.error('Erro ao deletar prova');
+    try {
+      if (deletingItem.type === 'quiz') {
+        const error = await deleteQuizData(deletingItem.id);
+        if (error) {
+          console.error('Error deleting quiz:', error);
+          toast.error(`Erro ao deletar prova: ${error.message}`);
+        } else {
+          toast.success('Prova deletada!');
+          fetchQuizzes(selectedCourse?.id);
+          if (selectedQuiz?.id === deletingItem.id) {
+            setSelectedQuiz(null);
+            setQuestions([]);
+          }
+        }
+      } else if (deletingItem.type === 'question') {
+        const error = await deleteQuestionData(deletingItem.id);
+        if (error) {
+          console.error('Error deleting question:', error);
+          toast.error(`Erro ao deletar questão: ${error.message}`);
+        } else {
+          toast.success('Questão deletada!');
+          fetchQuestions(selectedQuiz.id);
+        }
       } else {
-        toast.success('Prova deletada!');
-        fetchQuizzes();
-        if (selectedQuiz?.id === deletingItem.id) {
-          setSelectedQuiz(null);
-          setQuestions([]);
+        // Delete answer - also delete any user responses using this answer
+        await supabase.from('user_quiz_responses').delete().eq('answer_id', deletingItem.id);
+        
+        const { error } = await supabase.from('quiz_answers').delete().eq('id', deletingItem.id);
+        if (error) {
+          console.error('Error deleting answer:', error);
+          toast.error(`Erro ao deletar resposta: ${error.message}`);
+        } else {
+          toast.success('Resposta deletada!');
+          fetchQuestions(selectedQuiz.id);
         }
       }
-    } else if (deletingItem.type === 'question') {
-      const { error } = await supabase.from('quiz_questions').delete().eq('id', deletingItem.id);
-      if (error) {
-        toast.error('Erro ao deletar questão');
-      } else {
-        toast.success('Questão deletada!');
-        fetchQuestions(selectedQuiz.id);
-      }
-    } else {
-      const { error } = await supabase.from('quiz_answers').delete().eq('id', deletingItem.id);
-      if (error) {
-        toast.error('Erro ao deletar resposta');
-      } else {
-        toast.success('Resposta deletada!');
-        fetchQuestions(selectedQuiz.id);
-      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Erro ao deletar');
     }
 
     setDeleteDialogOpen(false);
