@@ -293,80 +293,122 @@ function AdminCourses() {
     setDeleteDialogOpen(true);
   };
 
+  const deleteQuizData = async (quizIds: string[]) => {
+    if (quizIds.length === 0) return;
+    
+    // Get all attempts for these quizzes
+    const { data: attempts } = await supabase
+      .from('user_quiz_attempts')
+      .select('id')
+      .in('quiz_id', quizIds);
+    
+    if (attempts && attempts.length > 0) {
+      const attemptIds = attempts.map(a => a.id);
+      // Delete quiz responses
+      await supabase.from('user_quiz_responses').delete().in('attempt_id', attemptIds);
+    }
+    
+    // Delete quiz attempts
+    await supabase.from('user_quiz_attempts').delete().in('quiz_id', quizIds);
+    
+    // Get all questions for these quizzes
+    const { data: questions } = await supabase
+      .from('quiz_questions')
+      .select('id')
+      .in('quiz_id', quizIds);
+    
+    if (questions && questions.length > 0) {
+      const questionIds = questions.map(q => q.id);
+      // Delete quiz answers
+      await supabase.from('quiz_answers').delete().in('question_id', questionIds);
+    }
+    
+    // Delete quiz questions
+    await supabase.from('quiz_questions').delete().in('quiz_id', quizIds);
+    
+    // Delete quizzes
+    await supabase.from('quizzes').delete().in('id', quizIds);
+  };
+
   const confirmDelete = async () => {
     if (!deletingItem) return;
 
     try {
       if (deletingItem.type === 'course') {
-        // Delete in order to respect foreign key constraints
-        // 1. Delete user_quiz_responses for quizzes in this course
-        const { data: quizzes } = await supabase
+        // 1. Get all modules for this course
+        const { data: courseModules } = await supabase
+          .from('modules')
+          .select('id')
+          .eq('course_id', deletingItem.id);
+        
+        const moduleIds = courseModules?.map(m => m.id) || [];
+        
+        // 2. Get all lessons for this course (direct and via modules)
+        const { data: allLessons } = await supabase
+          .from('lessons')
+          .select('id')
+          .or(`course_id.eq.${deletingItem.id}${moduleIds.length > 0 ? `,module_id.in.(${moduleIds.join(',')})` : ''}`);
+        
+        const lessonIds = allLessons?.map(l => l.id) || [];
+        
+        // 3. Get ALL quizzes related to this course (direct, via modules, or via lessons)
+        let allQuizIds: string[] = [];
+        
+        // Quizzes directly linked to course
+        const { data: courseQuizzes } = await supabase
           .from('quizzes')
           .select('id')
           .eq('course_id', deletingItem.id);
+        if (courseQuizzes) allQuizIds.push(...courseQuizzes.map(q => q.id));
         
-        if (quizzes && quizzes.length > 0) {
-          const quizIds = quizzes.map(q => q.id);
-          
-          // Get attempts for these quizzes
-          const { data: attempts } = await supabase
-            .from('user_quiz_attempts')
+        // Quizzes linked to modules
+        if (moduleIds.length > 0) {
+          const { data: moduleQuizzes } = await supabase
+            .from('quizzes')
             .select('id')
-            .in('quiz_id', quizIds);
-          
-          if (attempts && attempts.length > 0) {
-            const attemptIds = attempts.map(a => a.id);
-            await supabase.from('user_quiz_responses').delete().in('attempt_id', attemptIds);
-          }
-          
-          // Delete quiz attempts
-          await supabase.from('user_quiz_attempts').delete().in('quiz_id', quizIds);
-          
-          // Delete quiz answers and questions
-          for (const quiz of quizzes) {
-            const { data: questions } = await supabase
-              .from('quiz_questions')
-              .select('id')
-              .eq('quiz_id', quiz.id);
-            
-            if (questions && questions.length > 0) {
-              const questionIds = questions.map(q => q.id);
-              await supabase.from('quiz_answers').delete().in('question_id', questionIds);
-            }
-            await supabase.from('quiz_questions').delete().eq('quiz_id', quiz.id);
-          }
+            .in('module_id', moduleIds);
+          if (moduleQuizzes) allQuizIds.push(...moduleQuizzes.map(q => q.id));
         }
         
-        // 2. Delete quizzes
-        await supabase.from('quizzes').delete().eq('course_id', deletingItem.id);
+        // Quizzes linked to lessons
+        if (lessonIds.length > 0) {
+          const { data: lessonQuizzes } = await supabase
+            .from('quizzes')
+            .select('id')
+            .in('lesson_id', lessonIds);
+          if (lessonQuizzes) allQuizIds.push(...lessonQuizzes.map(q => q.id));
+        }
         
-        // 3. Delete user progress for lessons in this course
-        const { data: courseLessons } = await supabase
-          .from('lessons')
-          .select('id')
-          .eq('course_id', deletingItem.id);
+        // Remove duplicates
+        allQuizIds = [...new Set(allQuizIds)];
         
-        if (courseLessons && courseLessons.length > 0) {
-          const lessonIds = courseLessons.map(l => l.id);
+        // 4. Delete all quiz data
+        await deleteQuizData(allQuizIds);
+        
+        // 5. Delete user progress for all lessons
+        if (lessonIds.length > 0) {
           await supabase.from('user_progress').delete().in('lesson_id', lessonIds);
         }
         
-        // 4. Delete lessons
+        // 6. Delete all lessons
         await supabase.from('lessons').delete().eq('course_id', deletingItem.id);
+        if (moduleIds.length > 0) {
+          await supabase.from('lessons').delete().in('module_id', moduleIds);
+        }
         
-        // 5. Delete modules
+        // 7. Delete modules
         await supabase.from('modules').delete().eq('course_id', deletingItem.id);
         
-        // 6. Delete enrollments
+        // 8. Delete enrollments
         await supabase.from('enrollments').delete().eq('course_id', deletingItem.id);
         
-        // 7. Delete certificates
+        // 9. Delete certificates
         await supabase.from('certificates').delete().eq('course_id', deletingItem.id);
         
-        // 8. Delete course access rules
+        // 10. Delete course access rules
         await supabase.from('course_access').delete().eq('course_id', deletingItem.id);
         
-        // 9. Finally delete the course
+        // 11. Finally delete the course
         const { error } = await supabase.from('courses').delete().eq('id', deletingItem.id);
         
         if (error) {
@@ -380,56 +422,43 @@ function AdminCourses() {
           }
         }
       } else if (deletingItem.type === 'module') {
-        // Delete quizzes associated with this module
-        const { data: moduleQuizzes } = await supabase
-          .from('quizzes')
-          .select('id')
-          .eq('module_id', deletingItem.id);
-        
-        if (moduleQuizzes && moduleQuizzes.length > 0) {
-          const quizIds = moduleQuizzes.map(q => q.id);
-          
-          const { data: attempts } = await supabase
-            .from('user_quiz_attempts')
-            .select('id')
-            .in('quiz_id', quizIds);
-          
-          if (attempts && attempts.length > 0) {
-            const attemptIds = attempts.map(a => a.id);
-            await supabase.from('user_quiz_responses').delete().in('attempt_id', attemptIds);
-          }
-          
-          await supabase.from('user_quiz_attempts').delete().in('quiz_id', quizIds);
-          
-          for (const quiz of moduleQuizzes) {
-            const { data: questions } = await supabase
-              .from('quiz_questions')
-              .select('id')
-              .eq('quiz_id', quiz.id);
-            
-            if (questions && questions.length > 0) {
-              const questionIds = questions.map(q => q.id);
-              await supabase.from('quiz_answers').delete().in('question_id', questionIds);
-            }
-            await supabase.from('quiz_questions').delete().eq('quiz_id', quiz.id);
-          }
-          
-          await supabase.from('quizzes').delete().eq('module_id', deletingItem.id);
-        }
-        
-        // Delete lessons in this module and their progress
+        // Get lessons in this module
         const { data: moduleLessons } = await supabase
           .from('lessons')
           .select('id')
           .eq('module_id', deletingItem.id);
         
-        if (moduleLessons && moduleLessons.length > 0) {
-          const lessonIds = moduleLessons.map(l => l.id);
+        const lessonIds = moduleLessons?.map(l => l.id) || [];
+        
+        // Get all quizzes (module quizzes + lesson quizzes)
+        let allQuizIds: string[] = [];
+        
+        const { data: moduleQuizzes } = await supabase
+          .from('quizzes')
+          .select('id')
+          .eq('module_id', deletingItem.id);
+        if (moduleQuizzes) allQuizIds.push(...moduleQuizzes.map(q => q.id));
+        
+        if (lessonIds.length > 0) {
+          const { data: lessonQuizzes } = await supabase
+            .from('quizzes')
+            .select('id')
+            .in('lesson_id', lessonIds);
+          if (lessonQuizzes) allQuizIds.push(...lessonQuizzes.map(q => q.id));
+        }
+        
+        // Delete quiz data
+        await deleteQuizData(allQuizIds);
+        
+        // Delete user progress
+        if (lessonIds.length > 0) {
           await supabase.from('user_progress').delete().in('lesson_id', lessonIds);
         }
         
+        // Delete lessons
         await supabase.from('lessons').delete().eq('module_id', deletingItem.id);
         
+        // Delete module
         const { error } = await supabase.from('modules').delete().eq('id', deletingItem.id);
         
         if (error) {
@@ -442,46 +471,21 @@ function AdminCourses() {
         }
       } else {
         // Delete lesson
-        // First delete user progress
-        await supabase.from('user_progress').delete().eq('lesson_id', deletingItem.id);
-        
-        // Delete quizzes associated with this lesson
+        // Get quizzes for this lesson
         const { data: lessonQuizzes } = await supabase
           .from('quizzes')
           .select('id')
           .eq('lesson_id', deletingItem.id);
         
-        if (lessonQuizzes && lessonQuizzes.length > 0) {
-          const quizIds = lessonQuizzes.map(q => q.id);
-          
-          const { data: attempts } = await supabase
-            .from('user_quiz_attempts')
-            .select('id')
-            .in('quiz_id', quizIds);
-          
-          if (attempts && attempts.length > 0) {
-            const attemptIds = attempts.map(a => a.id);
-            await supabase.from('user_quiz_responses').delete().in('attempt_id', attemptIds);
-          }
-          
-          await supabase.from('user_quiz_attempts').delete().in('quiz_id', quizIds);
-          
-          for (const quiz of lessonQuizzes) {
-            const { data: questions } = await supabase
-              .from('quiz_questions')
-              .select('id')
-              .eq('quiz_id', quiz.id);
-            
-            if (questions && questions.length > 0) {
-              const questionIds = questions.map(q => q.id);
-              await supabase.from('quiz_answers').delete().in('question_id', questionIds);
-            }
-            await supabase.from('quiz_questions').delete().eq('quiz_id', quiz.id);
-          }
-          
-          await supabase.from('quizzes').delete().eq('lesson_id', deletingItem.id);
-        }
+        const quizIds = lessonQuizzes?.map(q => q.id) || [];
         
+        // Delete quiz data
+        await deleteQuizData(quizIds);
+        
+        // Delete user progress
+        await supabase.from('user_progress').delete().eq('lesson_id', deletingItem.id);
+        
+        // Delete lesson
         const { error } = await supabase.from('lessons').delete().eq('id', deletingItem.id);
         
         if (error) {
