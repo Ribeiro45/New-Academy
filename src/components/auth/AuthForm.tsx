@@ -11,6 +11,7 @@ import { Mail, Lock, User, ArrowRight, Shield, Building, CreditCard } from "luci
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import logoNWhite from "@/assets/logo-n-white.png";
+import { EMAIL_REDIRECTS } from "@/config/emailRedirects";
 
 const authSchema = z.object({
   email: z
@@ -359,7 +360,7 @@ export const AuthForm = () => {
             full_name: validatedData.fullName,
             user_type: userType,
           },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: EMAIL_REDIRECTS.emailConfirmation,
         },
       });
 
@@ -434,7 +435,7 @@ export const AuthForm = () => {
       setLoading(true);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: EMAIL_REDIRECTS.passwordReset,
       });
 
       if (error) throw error;
