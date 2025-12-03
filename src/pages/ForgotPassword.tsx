@@ -27,7 +27,7 @@ const ForgotPassword = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: 'https://newacademy.newstandard.com.br/new-senha',
       });
 
       if (error) throw error;
