@@ -20,6 +20,7 @@ import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
+import ConfirmEmail from "./pages/ConfirmEmail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCourses from "./pages/admin/AdminCourses";
 import AdminCoursesManagement from "./pages/admin/AdminCoursesManagement";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/demo" element={<Demo />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/my-courses" element={<MyCourses />} />
             <Route path="/courses" element={<Courses />} />

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail } from "lucide-react";
 import { toast } from "sonner";
 import logoNewStandard from '@/assets/logo-newstandard.png';
-import { EMAIL_REDIRECTS } from "@/config/emailRedirects";
+import { api } from "@/lib/api";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -27,17 +26,14 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: EMAIL_REDIRECTS.passwordReset,
-      });
-
-      if (error) throw error;
-
+      await api.auth.forgotPassword(email);
       setSent(true);
       toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
     } catch (error: any) {
       console.error("Error sending reset email:", error);
-      toast.error("Erro ao enviar email de recuperação. Tente novamente.");
+      // Não revelamos se o email existe ou não por segurança
+      setSent(true);
+      toast.success("Se o email estiver cadastrado, você receberá um link de recuperação.");
     } finally {
       setLoading(false);
     }

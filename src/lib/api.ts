@@ -67,6 +67,8 @@ export const api = {
     forgotPassword: (email: string) => apiRequest<{ message: string }>('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: (token: string, newPassword: string) => apiRequest<{ message: string }>('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
     updatePassword: (newPassword: string) => apiRequest<{ message: string }>('/auth/update-password', { method: 'POST', body: { newPassword } }),
+    confirmEmail: (token: string) => apiRequest<{ message: string }>('/auth/confirm-email', { method: 'POST', body: { token } }),
+    resendConfirmation: (email: string) => apiRequest<{ message: string }>('/auth/resend-confirmation', { method: 'POST', body: { email } }),
   },
 
   // Profiles

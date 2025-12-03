@@ -21,16 +21,17 @@ enum CourseTarget {
 }
 
 model User {
-  id              String    @id @default(uuid()) @db.Uuid
-  email           String    @unique @db.VarChar(255)
-  passwordHash    String    @map("password_hash") @db.VarChar(255)
-  emailConfirmed  Boolean   @default(false) @map("email_confirmed")
-  mfaSecret       String?   @map("mfa_secret") @db.VarChar(255)
-  mfaEnabled      Boolean   @default(false) @map("mfa_enabled")
-  resetToken      String?   @map("reset_token") @db.VarChar(255)
-  resetTokenExp   DateTime? @map("reset_token_exp")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  emailConfirmed    Boolean   @default(false) @map("email_confirmed")
+  emailConfirmToken String?   @map("email_confirm_token") @db.VarChar(255)
+  mfaSecret         String?   @map("mfa_secret") @db.VarChar(255)
+  mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
+  resetToken        String?   @map("reset_token") @db.VarChar(255)
+  resetTokenExp     DateTime? @map("reset_token_exp")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   profile         Profile?
   companyProfile  CompanyProfile?
