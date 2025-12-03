@@ -51,7 +51,7 @@ function AdminCourses() {
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
   const [editingCourse, setEditingCourse] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
+  
   const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState<any>(null);
   const [selectedModuleForQuiz, setSelectedModuleForQuiz] = useState<any>(null);
   const [quizType, setQuizType] = useState<'lesson' | 'module' | 'final'>('lesson');
@@ -170,35 +170,6 @@ function AdminCourses() {
     }
   };
 
-  const handleUploadThumbnail = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `course-thumbnails/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      courseForm.setValue('thumbnail_url', publicUrl);
-      toast.success('Imagem carregada com sucesso!');
-    } catch (error) {
-      console.error('Error uploading:', error);
-      toast.error('Erro ao fazer upload da imagem');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const onSubmitLesson = async (values: z.infer<typeof lessonSchema>) => {
     if (!selectedCourse) return;
@@ -593,21 +564,11 @@ function AdminCourses() {
                       name="thumbnail_url"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Capa do Curso</FormLabel>
+                          <FormLabel>Capa do Curso (URL)</FormLabel>
                           <FormControl>
-                            <div className="space-y-2">
-                              <Input {...field} placeholder="URL da imagem" />
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleUploadThumbnail}
-                                  disabled={uploading}
-                                />
-                                {uploading && <span className="text-sm text-muted-foreground">Enviando...</span>}
-                              </div>
-                            </div>
+                            <Input {...field} placeholder="https://drive.google.com/..." />
                           </FormControl>
+                          <p className="text-xs text-muted-foreground">Cole o link da imagem hospedada (Google Drive, Imgur, etc.)</p>
                           <FormMessage />
                         </FormItem>
                       )}
