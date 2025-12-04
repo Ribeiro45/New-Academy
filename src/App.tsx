@@ -20,6 +20,7 @@ import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
+import ForgotPasswordAPI from "./pages/ForgotPasswordAPI";
 import ConfirmEmail from "./pages/ConfirmEmail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCourses from "./pages/admin/AdminCourses";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/demo" element={<Demo />} />
             <Route path="/password" element={<ResetPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/forgot-password-api" element={<ForgotPasswordAPI />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/my-courses" element={<MyCourses />} />
