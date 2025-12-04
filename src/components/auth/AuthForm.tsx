@@ -398,7 +398,7 @@ export const AuthForm = () => {
         <div className="inline-flex items-center justify-center mb-4">
           <img src={logoNWhite} alt="NewWar" className="w-24 h-24 object-contain" />
         </div>
-        <h1 className="text-3xl font-bold text-white">New Ac</h1>
+        <h1 className="text-3xl font-bold text-white">New Academy</h1>
         <p className="text-white/80">Entre ou crie sua conta para começar</p>
       </div>
 
