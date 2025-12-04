@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api, setAuthToken } from '@/lib/api';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -140,12 +141,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       cpf: data.cpf,
       companyName: data.companyName,
       cnpj: data.cnpj,
-      sendConfirmationEmail: true, // Sempre enviar email de confirmação
+      sendConfirmationEmail: true,
     });
 
-    // Se email de confirmação foi enviado, não fazer login automático
-    if (response.message?.includes('check your email')) {
-      return; // Usuário precisa confirmar email primeiro
+    // Enviar email de confirmação via Supabase Edge Function como backup
+    if (response.user && !response.user.emailConfirmed) {
+      try {
+        console.log('Sending confirmation email via Supabase...');
+        const { error } = await supabase.functions.invoke('send-confirmation-email', {
+          body: {
+            email: data.email,
+            fullName: data.fullName,
+            confirmToken: response.user.emailConfirmToken || response.user.id,
+          },
+        });
+        if (error) {
+          console.error('Error sending confirmation email:', error);
+        } else {
+          console.log('Confirmation email sent successfully');
+        }
+      } catch (err) {
+        console.error('Failed to send confirmation email:', err);
+      }
+    }
+
+    // Não fazer login automático se precisa confirmar email
+    if (response.message?.includes('check your email') || !response.user?.emailConfirmed) {
+      return;
     }
 
     if (response.token) {
