@@ -353,6 +353,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
         profile: user.profile,
         roles: user.roles.map(r => r.role),
         emailConfirmed: user.emailConfirmed,
+        emailConfirmToken: emailConfirmToken, // Retornar token para envio via edge function
       },
       token,
       message: sendConfirmationEmail ? 'Registration successful. Please check your email to confirm your account.' : 'Registration successful.',
