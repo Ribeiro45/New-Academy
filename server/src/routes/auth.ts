@@ -34,13 +34,21 @@ const EMAIL_CONFIG = {
 
 // Criar transporter de email
 const createEmailTransporter = () => {
+  console.log('=== SMTP CONFIG DEBUG ===');
+  console.log('SMTP_HOST:', process.env.SMTP_HOST || 'NOT SET');
+  console.log('SMTP_PORT:', process.env.SMTP_PORT || 'NOT SET');
+  console.log('SMTP_SECURE:', process.env.SMTP_SECURE || 'NOT SET');
+  console.log('SMTP_USER:', process.env.SMTP_USER || 'NOT SET');
+  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '***SET***' : 'NOT SET');
+  console.log('=========================');
+  
   // Se não tiver configuração SMTP, retorna null
   if (!process.env.SMTP_HOST) {
     console.warn('SMTP not configured. Email will be logged to console.');
     return null;
   }
   
-  return nodemailer.createTransport({
+  const config = {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: process.env.SMTP_SECURE === 'true',
@@ -48,36 +56,59 @@ const createEmailTransporter = () => {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-  });
+    // Debug options para Gmail
+    debug: true,
+    logger: true,
+  };
+  
+  console.log('Creating transporter with config:', { ...config, auth: { user: config.auth.user, pass: '***' } });
+  
+  return nodemailer.createTransport(config);
 };
 
 // Função para enviar email
 const sendEmail = async (to: string, subject: string, html: string) => {
+  console.log('=== SENDING EMAIL ===');
+  console.log('To:', to);
+  console.log('Subject:', subject);
+  
   const transporter = createEmailTransporter();
   
+  // Gmail requer que o from seja o mesmo email autenticado
+  const fromEmail = process.env.SMTP_USER || EMAIL_CONFIG.from.email;
+  const fromName = EMAIL_CONFIG.from.name;
+  
   const mailOptions = {
-    from: `"${EMAIL_CONFIG.from.name}" <${EMAIL_CONFIG.from.email}>`,
+    from: `"${fromName}" <${fromEmail}>`,
     to,
     subject,
     html,
   };
   
+  console.log('Mail options:', { ...mailOptions, html: '[HTML CONTENT]' });
+  
   if (transporter) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`Email sent to ${to}`);
+      console.log('Attempting to send email via SMTP...');
+      const result = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully!');
+      console.log('Result:', result);
       return true;
-    } catch (error) {
-      console.error('Error sending email:', error);
+    } catch (error: any) {
+      console.error('=== EMAIL ERROR ===');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Full error:', error);
+      console.error('===================');
       return false;
     }
   } else {
     // Log para desenvolvimento
-    console.log('=== EMAIL (DEV MODE) ===');
+    console.log('=== EMAIL (DEV MODE - NO SMTP) ===');
     console.log('To:', to);
     console.log('Subject:', subject);
-    console.log('HTML:', html);
-    console.log('========================');
+    console.log('==================================');
     return true;
   }
 };
