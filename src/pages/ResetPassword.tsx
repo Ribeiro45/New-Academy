@@ -49,7 +49,7 @@ const ResetPassword = () => {
     try {
       await api.auth.resetPassword(token, newPassword);
       toast.success("Senha alterada com sucesso!");
-      navigate("/auth");
+      navigate("/auth-api");
     } catch (error: any) {
       toast.error(error.message || "Erro ao redefinir senha. O link pode ter expirado.");
     } finally {
@@ -84,14 +84,14 @@ const ResetPassword = () => {
           <CardContent>
             <Button 
               className="w-full" 
-              onClick={() => navigate('/forgot-password')}
+              onClick={() => navigate('/forgot-password-api')}
             >
               Solicitar Novo Link
             </Button>
             <Button 
               variant="ghost" 
               className="w-full mt-2"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/auth-api')}
             >
               Voltar para Login
             </Button>
