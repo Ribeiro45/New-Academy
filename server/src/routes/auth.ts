@@ -3,11 +3,13 @@ import bcrypt from 'bcryptjs';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
-import nodemailer from 'nodemailer';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { authenticate, generateToken, AuthRequest } from '../middleware/auth';
+
+// Resend API configuration
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 const router = Router();
 
@@ -96,84 +98,59 @@ const EMAIL_CONFIG = {
   },
 };
 
-// Criar transporter de email
-const createEmailTransporter = () => {
-  console.log('=== SMTP CONFIG DEBUG ===');
-  console.log('SMTP_HOST:', process.env.SMTP_HOST || 'NOT SET');
-  console.log('SMTP_PORT:', process.env.SMTP_PORT || 'NOT SET');
-  console.log('SMTP_SECURE:', process.env.SMTP_SECURE || 'NOT SET');
-  console.log('SMTP_USER:', process.env.SMTP_USER || 'NOT SET');
-  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '***SET***' : 'NOT SET');
-  console.log('=========================');
-  
-  // Se não tiver configuração SMTP, retorna null
-  if (!process.env.SMTP_HOST) {
-    console.warn('SMTP not configured. Email will be logged to console.');
-    return null;
-  }
-  
-  const config = {
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    // Debug options para Gmail
-    debug: true,
-    logger: true,
-  };
-  
-  console.log('Creating transporter with config:', { ...config, auth: { user: config.auth.user, pass: '***' } });
-  
-  return nodemailer.createTransport(config);
-};
-
-// Função para enviar email
+// Função para enviar email via Resend
 const sendEmail = async (to: string, subject: string, html: string) => {
-  console.log('=== SENDING EMAIL ===');
+  console.log('=== SENDING EMAIL VIA RESEND ===');
   console.log('To:', to);
   console.log('Subject:', subject);
+  console.log('RESEND_API_KEY:', RESEND_API_KEY ? '***SET***' : 'NOT SET');
   
-  const transporter = createEmailTransporter();
-  
-  // Gmail requer que o from seja o mesmo email autenticado
-  const fromEmail = process.env.SMTP_USER || EMAIL_CONFIG.from.email;
-  const fromName = EMAIL_CONFIG.from.name;
-  
-  const mailOptions = {
-    from: `"${fromName}" <${fromEmail}>`,
-    to,
-    subject,
-    html,
-  };
-  
-  console.log('Mail options:', { ...mailOptions, html: '[HTML CONTENT]' });
-  
-  if (transporter) {
-    try {
-      console.log('Attempting to send email via SMTP...');
-      const result = await transporter.sendMail(mailOptions);
-      console.log('Email sent successfully!');
-      console.log('Result:', result);
-      return true;
-    } catch (error: any) {
-      console.error('=== EMAIL ERROR ===');
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Full error:', error);
-      console.error('===================');
-      return false;
-    }
-  } else {
-    // Log para desenvolvimento
-    console.log('=== EMAIL (DEV MODE - NO SMTP) ===');
+  if (!RESEND_API_KEY) {
+    console.error('RESEND_API_KEY not configured. Email will be logged to console.');
+    console.log('=== EMAIL (DEV MODE - NO RESEND KEY) ===');
     console.log('To:', to);
     console.log('Subject:', subject);
-    console.log('==================================');
+    console.log('HTML:', html.substring(0, 200) + '...');
+    console.log('=========================================');
+    return false;
+  }
+  
+  const fromName = EMAIL_CONFIG.from.name;
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to: [to],
+        subject: subject,
+        html: html,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('=== RESEND API ERROR ===');
+      console.error('Status:', response.status);
+      console.error('Error:', error);
+      console.error('========================');
+      return false;
+    }
+
+    const result = await response.json();
+    console.log('Email sent successfully via Resend!');
+    console.log('Result:', result);
     return true;
+  } catch (error: any) {
+    console.error('=== RESEND ERROR ===');
+    console.error('Error:', error.message);
+    console.error('====================');
+    return false;
   }
 };
 
