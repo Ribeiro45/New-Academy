@@ -6,5 +6,5 @@ export const EMAIL_REDIRECTS = {
   emailConfirmation: 'https://newacademy.newstandard.com.br/dashboard',
   
   // URL de redirecionamento após clicar no link de reset de senha
-  passwordReset: 'https://newacademy.newstandard.com.br/new-senha',
+  passwordReset: 'https://newacademy.newstandard.com.br/password',
 };
