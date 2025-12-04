@@ -329,11 +329,19 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     // Enviar email de confirmação se necessário
     if (sendConfirmationEmail && emailConfirmToken) {
       const confirmUrl = `${EMAIL_CONFIG.frontendUrl}${EMAIL_CONFIG.routes.emailConfirmation}?token=${emailConfirmToken}`;
-      await sendEmail(
+      console.log('=== SENDING CONFIRMATION EMAIL ===');
+      console.log('To:', email);
+      console.log('Confirm URL:', confirmUrl);
+      const emailSent = await sendEmail(
         email,
         EMAIL_CONFIG.subjects.emailConfirmation,
         getEmailConfirmationTemplate(confirmUrl, fullName)
       );
+      console.log('Email sent:', emailSent ? 'SUCCESS' : 'FAILED');
+    } else {
+      console.log('=== SKIPPING CONFIRMATION EMAIL ===');
+      console.log('sendConfirmationEmail:', sendConfirmationEmail);
+      console.log('emailConfirmToken:', emailConfirmToken ? 'SET' : 'NOT SET');
     }
 
     const token = generateToken({ userId: user.id, email: user.email });

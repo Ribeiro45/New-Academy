@@ -136,7 +136,19 @@ export const AuthFormAPI = () => {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
       } else {
-        toast.error(error.message || "Erro ao fazer login");
+        // Traduzir mensagens de erro do backend
+        const errorMessage = error.message || "Erro ao fazer login";
+        if (errorMessage.includes('Email not confirmed')) {
+          toast.error("Email não confirmado. Verifique sua caixa de entrada.");
+        } else if (errorMessage.includes('Invalid credentials')) {
+          toast.error("Email ou senha incorretos");
+        } else if (errorMessage.includes('CPF does not match')) {
+          toast.error("CPF não corresponde ao cadastro");
+        } else if (errorMessage.includes('CNPJ does not match')) {
+          toast.error("CNPJ não corresponde ao cadastro");
+        } else {
+          toast.error(errorMessage);
+        }
       }
     } finally {
       setLoading(false);
