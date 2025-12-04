@@ -20,10 +20,10 @@ const EMAIL_CONFIG = {
     emailConfirmation: '/confirm-email',
   },
   
-  // Configurações de email
+  // Configurações de email - aceita SMTP_FROM ou SMTP_FROM_NAME
   from: {
-    name: process.env.SMTP_FROM_NAME || 'New Academy',
-    email: process.env.SMTP_FROM_EMAIL || 'noreply@newstandard.com.br',
+    name: process.env.SMTP_FROM_NAME || process.env.SMTP_FROM || 'New Academy',
+    email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@newstandard.com.br',
   },
   
   subjects: {
