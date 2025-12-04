@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -195,7 +196,7 @@ export default function FAQ() {
                     {selectedSectionData.description && (
                       <div 
                         className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary mb-6"
-                        dangerouslySetInnerHTML={{ __html: selectedSectionData.description }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedSectionData.description) }}
                       />
                     )}
                     <div className="text-sm text-muted-foreground pt-4 border-t border-border/50">
