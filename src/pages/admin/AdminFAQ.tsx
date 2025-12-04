@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -539,7 +540,7 @@ export default function AdminFAQ() {
                     <Label className="text-xs text-muted-foreground mb-2 block">Preview:</Label>
                     <div 
                       className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ __html: formData.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formData.description) }}
                     />
                   </div>
                 )}
