@@ -56,7 +56,7 @@ export const api = {
     login: (data: { email: string; password: string; cpf?: string; cnpj?: string; userType?: string }) =>
       apiRequest<{ user?: any; token?: string; requiresMfa?: boolean; mfaToken?: string }>('/auth/login', { method: 'POST', body: data }),
     register: (data: any) =>
-      apiRequest<{ user: any; token: string }>('/auth/register', { method: 'POST', body: data }),
+      apiRequest<{ user: any; token: string; message?: string }>('/auth/register', { method: 'POST', body: data }),
     me: () => apiRequest<any>('/auth/me'),
     mfaVerify: (data: { mfaToken: string; code: string }) =>
       apiRequest<{ user: any; token: string }>('/auth/mfa/verify', { method: 'POST', body: data }),

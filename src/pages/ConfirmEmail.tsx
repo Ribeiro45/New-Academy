@@ -27,17 +27,7 @@ const ConfirmEmail = () => {
 
   const confirmEmail = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/confirm-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Falha ao confirmar email');
-      }
+      await api.auth.confirmEmail(token!);
 
       setStatus('success');
       setMessage('Email confirmado com sucesso!');
@@ -88,7 +78,7 @@ const ConfirmEmail = () => {
           {status === 'success' && (
             <Button 
               className="w-full" 
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/auth-api')}
             >
               Ir para Login
             </Button>
@@ -98,7 +88,7 @@ const ConfirmEmail = () => {
             <>
               <Button 
                 className="w-full" 
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/auth-api')}
               >
                 Ir para Login
               </Button>

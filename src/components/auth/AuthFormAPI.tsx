@@ -206,8 +206,9 @@ export const AuthFormAPI = () => {
         cnpj: userType === 'cliente' ? cnpj.replace(/\D/g, '') : undefined,
       });
 
-      toast.success("Conta criada com sucesso!");
-      navigate("/dashboard");
+      toast.success("Conta criada! Verifique seu email para confirmar sua conta.");
+      // Não navegar para dashboard - usuário precisa confirmar email
+      setActiveTab('login');
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
