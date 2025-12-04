@@ -140,7 +140,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       cpf: data.cpf,
       companyName: data.companyName,
       cnpj: data.cnpj,
+      sendConfirmationEmail: true, // Sempre enviar email de confirmação
     });
+
+    // Se email de confirmação foi enviado, não fazer login automático
+    if (response.message?.includes('check your email')) {
+      return; // Usuário precisa confirmar email primeiro
+    }
 
     if (response.token) {
       setAuthToken(response.token);
