@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail } from "lucide-react";
 import { toast } from "sonner";
 import logoNewStandard from '@/assets/logo-newstandard.png';
-import { api } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -26,12 +26,18 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      await api.auth.forgotPassword(email);
+      // Call the Edge Function
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email }
+      });
+
+      if (error) throw error;
+
       setSent(true);
       toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
     } catch (error: any) {
       console.error("Error sending reset email:", error);
-      // Não revelamos se o email existe ou não por segurança
+      // Always show success for security (don't reveal if email exists)
       setSent(true);
       toast.success("Se o email estiver cadastrado, você receberá um link de recuperação.");
     } finally {
