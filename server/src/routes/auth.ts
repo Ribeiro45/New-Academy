@@ -4,10 +4,74 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import prisma from '../config/database';
 import { authenticate, generateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+// Rate limiters for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  message: { error: 'Too many attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] as string || 'unknown',
+});
+
+const mfaLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 5,
+  message: { error: 'Too many MFA attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Input validation schemas
+const registerSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(100),
+  fullName: z.string().min(2).max(100),
+  userType: z.enum(['colaborador', 'cliente']),
+  cpf: z.string().regex(/^\d{11}$/).optional().nullable(),
+  cnpj: z.string().regex(/^\d{14}$/).optional().nullable(),
+  companyName: z.string().max(200).optional().nullable(),
+  sendConfirmationEmail: z.boolean().optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(1).max(100),
+  cpf: z.string().regex(/^\d{11}$/).optional().nullable(),
+  cnpj: z.string().regex(/^\d{14}$/).optional().nullable(),
+  userType: z.enum(['colaborador', 'cliente']).optional(),
+});
+
+const mfaVerifySchema = z.object({
+  mfaToken: z.string().min(1),
+  code: z.string().length(6).regex(/^\d+$/),
+});
+
+const mfaDisableSchema = z.object({
+  password: z.string().min(1),
+  mfaCode: z.string().length(6).regex(/^\d+$/),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email().max(255),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().uuid(),
+  newPassword: z.string().min(8).max(100),
+});
+
+const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(100),
+});
 
 // Configuração de email (pode ser movida para config separada)
 const EMAIL_CONFIG = {
@@ -206,9 +270,14 @@ const getEmailConfirmationTemplate = (confirmUrl: string, userName?: string) => 
 };
 
 // Register
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, cpf, cnpj, companyName, userType, sendConfirmationEmail } = req.body;
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { email, password, fullName, cpf, cnpj, companyName, userType, sendConfirmationEmail } = parsed.data;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -379,9 +448,14 @@ router.post('/resend-confirmation', async (req: Request, res: Response) => {
 });
 
 // Login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, cpf, cnpj, userType } = req.body;
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { email, password, cpf, cnpj, userType } = parsed.data;
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -457,9 +531,14 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // Verify MFA
-router.post('/mfa/verify', async (req: Request, res: Response) => {
+router.post('/mfa/verify', mfaLimiter, async (req: Request, res: Response) => {
   try {
-    const { mfaToken, code } = req.body;
+    const parsed = mfaVerifySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { mfaToken, code } = parsed.data;
 
     // Decode the MFA token
     const jwt = require('jsonwebtoken');
@@ -573,9 +652,47 @@ router.post('/mfa/enable', authenticate, async (req: AuthRequest, res: Response)
   }
 });
 
-// Disable MFA
-router.post('/mfa/disable', authenticate, async (req: AuthRequest, res: Response) => {
+// Disable MFA - requires password and current MFA code verification
+router.post('/mfa/disable', authenticate, mfaLimiter, async (req: AuthRequest, res: Response) => {
   try {
+    const parsed = mfaDisableSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Password and MFA code are required' });
+      return;
+    }
+    const { password, mfaCode } = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
+      res.status(401).json({ error: 'Invalid password' });
+      return;
+    }
+
+    // Verify MFA code
+    if (!user.mfaSecret) {
+      res.status(400).json({ error: 'MFA not enabled' });
+      return;
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.mfaSecret,
+      encoding: 'base32',
+      token: mfaCode,
+      window: 2,
+    });
+
+    if (!verified) {
+      res.status(401).json({ error: 'Invalid MFA code' });
+      return;
+    }
+
     await prisma.user.update({
       where: { id: req.userId },
       data: {
@@ -636,9 +753,14 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // Forgot password
-router.post('/forgot-password', async (req: Request, res: Response) => {
+router.post('/forgot-password', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid email format' });
+      return;
+    }
+    const { email } = parsed.data;
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -678,9 +800,14 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 // Reset password
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post('/reset-password', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { token, newPassword } = req.body;
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { token, newPassword } = parsed.data;
 
     const user = await prisma.user.findFirst({
       where: {
@@ -711,10 +838,28 @@ router.post('/reset-password', async (req: Request, res: Response) => {
   }
 });
 
-// Update password (authenticated)
+// Update password (authenticated) - requires current password verification
 router.post('/update-password', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { newPassword } = req.body;
+    const parsed = updatePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Current password and new password are required' });
+      return;
+    }
+    const { currentPassword, newPassword } = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValidPassword) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
