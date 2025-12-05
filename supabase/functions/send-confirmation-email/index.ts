@@ -67,7 +67,7 @@ const sendEmailWithResend = async (to: string, subject: string, html: string) =>
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "New Academy <onboarding@resend.dev>",
+      from: "onboarding@resend.dev",
       to: [to],
       subject: subject,
       html: html,
