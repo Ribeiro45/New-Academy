@@ -102,50 +102,35 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       const [enrollmentsRes, progressRes, certificatesRes] = await Promise.all([
-      // Buscar apenas as matrículas do usuário e obter apenas os IDs de curso
-      supabase.from("enrollments").select("course_id").eq("user_id", user!.id),
-      // Buscar progresso apenas do usuário logado
-      supabase.from("user_progress").select("*").eq("user_id", user!.id),
-      // Buscar últimos certificados do usuário e contar total
-      supabase.from("certificates").select(`
+        supabase.from("enrollments").select("course_id").eq("user_id", user!.id),
+        supabase.from("user_progress").select("*").eq("user_id", user!.id),
+        supabase.from("certificates").select(`
           id,
           certificate_number,
           issued_at,
           courses (
             title
           )
-        `, {
-        count: "exact"
-      }).eq("user_id", user!.id).order("issued_at", {
-        ascending: false
-      }).limit(3)]);
+        `, { count: "exact" }).eq("user_id", user!.id).order("issued_at", { ascending: false }).limit(3)
+      ]);
 
-      // Cursos do usuário a partir das matrículas
       if (enrollmentsRes.data) {
         const courseIds = Array.from(new Set((enrollmentsRes.data as any[]).map(e => e.course_id).filter((id: string | null) => Boolean(id))));
         if (courseIds.length > 0) {
-          // Buscar os dados dos cursos pelos IDs
-          const {
-            data: coursesData
-          } = await supabase.from("courses").select("*").in("id", courseIds);
+          const { data: coursesData } = await supabase.from("courses").select("*").in("id", courseIds);
           if (coursesData) {
             setCourses(coursesData as Course[]);
           }
 
-          // Buscar aulas com base nas lições que o usuário possui progresso
-          const lessonIds = Array.from(new Set((progressRes.data as any[] || []).map((p: any) => p.lesson_id)));
-          if (lessonIds.length > 0) {
-            const {
-              data: lessonsData
-            } = await supabase.from("lessons").select("*").in("id", lessonIds);
-            if (lessonsData) {
-              setLessons(lessonsData as Lesson[]);
+          // Buscar TODAS as lições dos cursos matriculados (igual ao admin)
+          const { data: lessonsData } = await supabase.from("lessons").select("*").in("course_id", courseIds);
+          if (lessonsData) {
+            setLessons(lessonsData as Lesson[]);
 
-              // Calcular tempo de estudo com base nas aulas concluídas do usuário
-              const completedLessonIds = (progressRes.data as any[] || []).filter((p: any) => p.completed).map((p: any) => p.lesson_id);
-              const totalMinutes = (lessonsData as Lesson[]).filter(l => completedLessonIds.includes(l.id)).reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
-              setStudyTime(totalMinutes);
-            }
+            // Calcular tempo de estudo com base nas aulas concluídas
+            const completedLessonIds = (progressRes.data as any[] || []).filter((p: any) => p.completed).map((p: any) => p.lesson_id);
+            const totalMinutes = (lessonsData as Lesson[]).filter(l => completedLessonIds.includes(l.id)).reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
+            setStudyTime(totalMinutes);
           } else {
             setLessons([]);
             setStudyTime(0);
