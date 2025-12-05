@@ -47,7 +47,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth-api" element={<AuthAPI />} />
             <Route path="/demo" element={<Demo />} />
-            <Route path="/password" element={<ResetPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/forgot-password-api" element={<ForgotPasswordAPI />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
