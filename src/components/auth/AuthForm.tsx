@@ -324,15 +324,25 @@ export const AuthForm = () => {
         throw error;
       }
 
-      // Save CPF for colaborador
-      if (userType === 'colaborador' && data.user) {
-        const {
-          error: profileError
-        } = await supabase.from('profiles').update({
-          cpf: cpf.replace(/\D/g, '')
-        }).eq('id', data.user.id);
+      // Save profile data
+      if (data.user) {
+        const profileData: any = {
+          full_name: validatedData.fullName,
+          email: validatedData.email,
+          user_type: userType
+        };
+        
+        if (userType === 'colaborador') {
+          profileData.cpf = cpf.replace(/\D/g, '');
+        }
+        
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(profileData)
+          .eq('id', data.user.id);
+          
         if (profileError) {
-          console.error('Erro ao salvar CPF:', profileError);
+          console.error('Erro ao salvar dados do perfil:', profileError);
         }
       }
 
