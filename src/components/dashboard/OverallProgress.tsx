@@ -42,11 +42,11 @@ export const OverallProgress = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="font-medium">Progresso Total</span>
-            <span className="font-bold text-primary">{Math.round(overallProgress)}%</span>
+          <span className="text-sm font-medium">Progresso Total</span>
+          <div className="flex items-center gap-2">
+            <Progress value={overallProgress} className="flex-1" />
+            <span className="text-sm text-muted-foreground">{Math.round(overallProgress)}%</span>
           </div>
-          <Progress value={overallProgress} className="h-3" />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
