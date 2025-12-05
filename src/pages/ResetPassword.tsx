@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,80 +7,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Eye, EyeOff, Lock, AlertCircle, Loader2 } from "lucide-react";
 import logoNewStandard from '@/assets/logo-newstandard.png';
-import { api } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
-  const [tokenValid, setTokenValid] = useState(false);
-  const [isSupabaseFlow, setIsSupabaseFlow] = useState(false);
-
-  const token = searchParams.get('token');
+  const [canResetPassword, setCanResetPassword] = useState(false);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event from Supabase
+    // Listen for PASSWORD_RECOVERY event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);
+      console.log('ResetPassword - Auth event:', event);
       
       if (event === 'PASSWORD_RECOVERY') {
-        setIsSupabaseFlow(true);
-        setTokenValid(true);
+        setCanResetPassword(true);
         setInitializing(false);
       } else if (event === 'SIGNED_IN' && session) {
-        // User might already have a session from the recovery link
-        setIsSupabaseFlow(true);
-        setTokenValid(true);
+        // Check if this might be from a recovery link
+        setCanResetPassword(true);
         setInitializing(false);
       }
     });
 
-    // Check for existing session or hash params
-    const initializeAuth = async () => {
-      // Check URL hash for tokens (Supabase recovery flow)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
-
-      if (accessToken && type === 'recovery') {
-        try {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: hashParams.get('refresh_token') || '',
-          });
-
-          if (!error) {
-            setIsSupabaseFlow(true);
-            setTokenValid(true);
-          }
-        } catch (error) {
-          console.error('Error in Supabase auth:', error);
-        }
-      } else if (token) {
-        // Backend token flow
-        setIsSupabaseFlow(false);
-        setTokenValid(true);
+    // Check current session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        setCanResetPassword(true);
       }
       
-      // Check if user has an active session (from recovery link click)
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsSupabaseFlow(true);
-        setTokenValid(true);
-      }
-
-      setInitializing(false);
+      // Give some time for the auth event to fire
+      setTimeout(() => {
+        setInitializing(false);
+      }, 2000);
     };
 
-    initializeAuth();
+    checkSession();
 
     return () => subscription.unsubscribe();
-  }, [token]);
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,29 +68,20 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      if (isSupabaseFlow) {
-        // Update password using Supabase
-        const { error } = await supabase.auth.updateUser({
-          password: newPassword
-        });
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast.success("Senha alterada com sucesso!");
-        navigate("/auth");
-      } else {
-        // Update password using backend API
-        if (!token) {
-          toast.error("Token de recuperação inválido");
-          return;
-        }
-        
-        await api.auth.resetPassword(token, newPassword);
-        toast.success("Senha alterada com sucesso!");
-        navigate("/auth-api");
-      }
+      toast.success("Senha alterada com sucesso!");
+      
+      // Sign out and redirect to login
+      await supabase.auth.signOut();
+      navigate("/auth");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao redefinir senha. O link pode ter expirado.");
+      console.error('Error resetting password:', error);
+      toast.error(error.message || "Erro ao redefinir senha. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -134,15 +95,16 @@ const ResetPassword = () => {
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary-glow/20 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
         <Card className="w-full max-w-md relative z-10 shadow-elegant">
-          <CardContent className="flex items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Verificando link...</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!tokenValid) {
+  if (!canResetPassword) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary via-primary-glow to-accent relative overflow-hidden flex items-center justify-center p-4">
         <div className="absolute inset-0 overflow-hidden">
@@ -151,7 +113,7 @@ const ResetPassword = () => {
         </div>
 
         <div className="absolute top-6 left-6">
-          <img src={logoNewStandard} alt="NewWar" className="h-12 w-auto object-contain" />
+          <img src={logoNewStandard} alt="New Academy" className="h-12 w-auto object-contain" />
         </div>
 
         <Card className="w-full max-w-md relative z-10 shadow-elegant">
@@ -196,7 +158,7 @@ const ResetPassword = () => {
 
       {/* Logo */}
       <div className="absolute top-6 left-6">
-        <img src={logoNewStandard} alt="NewWar" className="h-12 w-auto object-contain" />
+        <img src={logoNewStandard} alt="New Academy" className="h-12 w-auto object-contain" />
       </div>
 
       {/* Card */}
