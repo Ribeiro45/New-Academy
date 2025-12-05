@@ -23,19 +23,19 @@ interface SectionItemProps {
   section: FAQSection;
   allSections: FAQSection[];
   level?: number;
-  currentSearch: string;
+  currentPath: string;
 }
 
-const SectionItem = ({ section, allSections, level = 0, currentSearch }: SectionItemProps) => {
+const SectionItem = ({ section, allSections, level = 0, currentPath }: SectionItemProps) => {
   const [expanded, setExpanded] = useState(false);
   const subsections = allSections.filter(s => s.parent_id === section.id);
   const hasSubsections = subsections.length > 0;
-  const isActive = currentSearch.includes(`section=${section.id}`);
+  const isActive = currentPath === `/faq/section/${section.id}`;
 
   if (!hasSubsections) {
     return (
       <Link
-        to={`/faq?section=${section.id}`}
+        to={`/faq/section/${section.id}`}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
           isActive
             ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
@@ -53,7 +53,7 @@ const SectionItem = ({ section, allSections, level = 0, currentSearch }: Section
       <Collapsible open={expanded} onOpenChange={setExpanded}>
         <div className="flex items-center gap-1" style={{ marginLeft: `${level * 0.5}rem` }}>
           <Link
-            to={`/faq?section=${section.id}`}
+            to={`/faq/section/${section.id}`}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors flex-1 text-left ${
               isActive
                 ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
@@ -78,7 +78,7 @@ const SectionItem = ({ section, allSections, level = 0, currentSearch }: Section
               section={subsection}
               allSections={allSections}
               level={level + 1}
-              currentSearch={currentSearch}
+              currentPath={currentPath}
             />
           ))}
         </CollapsibleContent>
@@ -326,7 +326,7 @@ export const Sidebar = () => {
                       key={section.id}
                       section={section}
                       allSections={faqSections}
-                      currentSearch={location.search}
+                      currentPath={location.pathname}
                     />
                   ))}
               </CollapsibleContent>
