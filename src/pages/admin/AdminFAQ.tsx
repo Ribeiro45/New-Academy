@@ -275,6 +275,20 @@ export default function AdminFAQ() {
     setEditingFAQ(null);
   };
 
+  const handleCreateSubSection = (parentSection: FAQ) => {
+    setFormData({
+      title: '',
+      description: '',
+      target_audience: parentSection.target_audience,
+      order_index: faqs.filter(f => f.parent_id === parentSection.id).length,
+      parent_id: parentSection.id,
+      is_section: true
+    });
+    setEditingFAQ(null);
+    setPdfFile(null);
+    setIsDialogOpen(true);
+  };
+
   const renderSection = (section: FAQ, level: number = 0): JSX.Element => {
     const childSections = faqs.filter(f => f.is_section && f.parent_id === section.id);
     const childItems = faqs.filter(f => !f.is_section && f.parent_id === section.id);
@@ -293,6 +307,15 @@ export default function AdminFAQ() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleCreateSubSection(section)}
+              title="Criar sub-seção"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Sub-seção
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => handleEdit(section)}>
               <Edit className="w-4 h-4" />
             </Button>
