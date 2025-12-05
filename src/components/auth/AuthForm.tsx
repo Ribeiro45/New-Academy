@@ -360,8 +360,26 @@ export const AuthForm = () => {
         }
       }
 
-      // Email de confirmação é enviado automaticamente pelo Supabase Auth
+      // Enviar email de confirmação via Edge Function
       if (data.user) {
+        try {
+          console.log('Enviando email de confirmação via Edge Function...');
+          const { error: emailError } = await supabase.functions.invoke('send-confirmation-email', {
+            body: {
+              email: validatedData.email,
+              fullName: validatedData.fullName,
+              userId: data.user.id,
+            },
+          });
+          if (emailError) {
+            console.error('Erro ao enviar email de confirmação:', emailError);
+          } else {
+            console.log('Email de confirmação enviado com sucesso');
+          }
+        } catch (err) {
+          console.error('Falha ao enviar email de confirmação:', err);
+        }
+
         toast.success("Conta criada! Verifique seu email para confirmar o cadastro.", {
           duration: 6000
         });
