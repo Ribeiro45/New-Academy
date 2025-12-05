@@ -18,49 +18,68 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
-  const [tokenValid, setTokenValid] = useState(true);
+  const [tokenValid, setTokenValid] = useState(false);
   const [isSupabaseFlow, setIsSupabaseFlow] = useState(false);
 
   const token = searchParams.get('token');
 
   useEffect(() => {
+    // Listen for PASSWORD_RECOVERY event from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsSupabaseFlow(true);
+        setTokenValid(true);
+        setInitializing(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        // User might already have a session from the recovery link
+        setIsSupabaseFlow(true);
+        setTokenValid(true);
+        setInitializing(false);
+      }
+    });
+
+    // Check for existing session or hash params
     const initializeAuth = async () => {
-      // Check if this is a Supabase recovery flow (tokens in URL hash)
+      // Check URL hash for tokens (Supabase recovery flow)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token');
       const type = hashParams.get('type');
 
       if (accessToken && type === 'recovery') {
-        // Supabase recovery flow
         try {
-          const { data, error } = await supabase.auth.setSession({
+          const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: hashParams.get('refresh_token') || '',
           });
 
-          if (error) {
-            console.error('Error setting session:', error);
-            setTokenValid(false);
-          } else {
+          if (!error) {
             setIsSupabaseFlow(true);
             setTokenValid(true);
           }
         } catch (error) {
           console.error('Error in Supabase auth:', error);
-          setTokenValid(false);
         }
       } else if (token) {
         // Backend token flow
         setIsSupabaseFlow(false);
         setTokenValid(true);
-      } else {
-        setTokenValid(false);
+      }
+      
+      // Check if user has an active session (from recovery link click)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsSupabaseFlow(true);
+        setTokenValid(true);
       }
 
       setInitializing(false);
     };
 
     initializeAuth();
+
+    return () => subscription.unsubscribe();
   }, [token]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
