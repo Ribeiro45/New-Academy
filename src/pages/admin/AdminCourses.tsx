@@ -11,13 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit, ClipboardList } from 'lucide-react';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 const courseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
-  thumbnail_url: z.string().url('URL inválida').optional().or(z.literal('')),
+  thumbnail_url: z.string().optional().or(z.literal('')),
   duration: z.string().optional(),
   total_modules: z.number().min(0).optional(),
   total_lessons: z.number().min(0).optional(),
@@ -564,11 +565,14 @@ function AdminCourses() {
                       name="thumbnail_url"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Capa do Curso (URL)</FormLabel>
+                          <FormLabel>Capa do Curso</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="https://drive.google.com/..." />
+                            <ImageUpload
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              bucket="course-thumbnails"
+                            />
                           </FormControl>
-                          <p className="text-xs text-muted-foreground">Cole o link da imagem hospedada (Google Drive, Imgur, etc.)</p>
                           <FormMessage />
                         </FormItem>
                       )}
