@@ -24,13 +24,15 @@ interface SectionItemProps {
   allSections: FAQSection[];
   level?: number;
   currentPath: string;
+  expandedSections: Set<string>;
+  onToggleExpand: (sectionId: string) => void;
 }
 
-const SectionItem = ({ section, allSections, level = 0, currentPath }: SectionItemProps) => {
-  const [expanded, setExpanded] = useState(false);
+const SectionItem = ({ section, allSections, level = 0, currentPath, expandedSections, onToggleExpand }: SectionItemProps) => {
   const subsections = allSections.filter(s => s.parent_id === section.id);
   const hasSubsections = subsections.length > 0;
   const isActive = currentPath === `/faq/section/${section.id}`;
+  const expanded = expandedSections.has(section.id);
 
   if (!hasSubsections) {
     return (
@@ -50,7 +52,7 @@ const SectionItem = ({ section, allSections, level = 0, currentPath }: SectionIt
 
   return (
     <div className="space-y-1">
-      <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <Collapsible open={expanded} onOpenChange={() => onToggleExpand(section.id)}>
         <div className="flex items-center gap-1" style={{ marginLeft: `${level * 0.5}rem` }}>
           <Link
             to={`/faq/section/${section.id}`}
@@ -79,6 +81,8 @@ const SectionItem = ({ section, allSections, level = 0, currentPath }: SectionIt
               allSections={allSections}
               level={level + 1}
               currentPath={currentPath}
+              expandedSections={expandedSections}
+              onToggleExpand={onToggleExpand}
             />
           ))}
         </CollapsibleContent>
@@ -95,7 +99,32 @@ export const Sidebar = () => {
   const [userName, setUserName] = useState('Usuário');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [faqSections, setFaqSections] = useState<FAQSection[]>([]);
-  const [faqExpanded, setFaqExpanded] = useState(false);
+  const [faqExpanded, setFaqExpanded] = useState(() => {
+    const saved = localStorage.getItem('faq-menu-expanded');
+    return saved === 'true';
+  });
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('faq-expanded-sections');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  const handleToggleExpand = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      localStorage.setItem('faq-expanded-sections', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  };
+
+  const handleFaqExpandedChange = (open: boolean) => {
+    setFaqExpanded(open);
+    localStorage.setItem('faq-menu-expanded', String(open));
+  };
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -293,7 +322,7 @@ export const Sidebar = () => {
           })}
 
           {/* Base de Conhecimento - Expandable Menu */}
-          <Collapsible open={faqExpanded} onOpenChange={setFaqExpanded}>
+          <Collapsible open={faqExpanded} onOpenChange={handleFaqExpandedChange}>
             <div className="flex items-center gap-1">
               <Link
                 to="/faq"
@@ -327,6 +356,8 @@ export const Sidebar = () => {
                       section={section}
                       allSections={faqSections}
                       currentPath={location.pathname}
+                      expandedSections={expandedSections}
+                      onToggleExpand={handleToggleExpand}
                     />
                   ))}
               </CollapsibleContent>
