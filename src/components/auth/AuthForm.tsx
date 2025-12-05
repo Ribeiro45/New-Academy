@@ -263,39 +263,22 @@ export const AuthForm = () => {
         return;
       }
 
-      // Validate based on user type
-      if (userType === 'colaborador') {
-        if (!cpf) {
-          toast.error("CPF é obrigatório");
-          return;
-        }
-        cpfSchema.parse(cpf.replace(/\D/g, ''));
-
-        // Check if CPF already exists
-        const {
-          data: existingCpf
-        } = await supabase.from('profiles').select('cpf').eq('cpf', cpf.replace(/\D/g, '')).maybeSingle();
-        if (existingCpf) {
-          toast.error("Este CPF já está cadastrado");
-          return;
-        }
+      // Todos os novos cadastros são como cliente - validar dados da empresa
+      if (!companyName || !cnpj) {
+        toast.error("Preencha todos os campos da empresa");
+        return;
       }
-      if (userType === 'cliente') {
-        if (!companyName || !cnpj) {
-          toast.error("Preencha todos os campos da empresa");
-          return;
-        }
-        cnpjSchema.parse(cnpj.replace(/\D/g, ''));
+      cnpjSchema.parse(cnpj.replace(/\D/g, ''));
 
-        // Check if CNPJ + company name combination exists
-        const {
-          data: existingCompany
-        } = await supabase.from('company_profiles').select('cnpj, company_name').eq('cnpj', cnpj.replace(/\D/g, '')).eq('company_name', companyName.trim()).maybeSingle();
-        if (existingCompany) {
-          toast.error("Esta combinação de CNPJ e Nome da Empresa já está cadastrada");
-          return;
-        }
+      // Check if CNPJ + company name combination exists
+      const {
+        data: existingCompany
+      } = await supabase.from('company_profiles').select('cnpj, company_name').eq('cnpj', cnpj.replace(/\D/g, '')).eq('company_name', companyName.trim()).maybeSingle();
+      if (existingCompany) {
+        toast.error("Esta combinação de CNPJ e Nome da Empresa já está cadastrada");
+        return;
       }
+
       const validatedData = authSchema.parse({
         email: email.trim(),
         password,
@@ -311,7 +294,7 @@ export const AuthForm = () => {
         options: {
           data: {
             full_name: validatedData.fullName,
-            user_type: userType
+            user_type: 'cliente'  // Sempre cliente no cadastro
           },
           emailRedirectTo: EMAIL_REDIRECTS.emailConfirmation
         }
@@ -324,30 +307,8 @@ export const AuthForm = () => {
         throw error;
       }
 
-      // Save profile data
+      // Salvar dados da empresa (todos os novos cadastros são clientes)
       if (data.user) {
-        const profileData: any = {
-          full_name: validatedData.fullName,
-          email: validatedData.email,
-          user_type: userType
-        };
-        
-        if (userType === 'colaborador') {
-          profileData.cpf = cpf.replace(/\D/g, '');
-        }
-        
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update(profileData)
-          .eq('id', data.user.id);
-          
-        if (profileError) {
-          console.error('Erro ao salvar dados do perfil:', profileError);
-        }
-      }
-
-      // If client type, save company data
-      if (userType === 'cliente' && data.user) {
         const {
           error: companyError
         } = await supabase.from('company_profiles').insert({
@@ -560,28 +521,20 @@ export const AuthForm = () => {
               </TabsContent>
 
               <TabsContent value="signup" className="space-y-4 animate-fade-in">
-                <div className="space-y-3 mb-4">
-                  <Label className="text-base font-medium">Tipo de Cadastro</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button type="button" variant={userType === "colaborador" ? "default" : "outline"} className={cn("flex flex-col items-center gap-2 h-auto py-4 transition-all", userType === "colaborador" && "ring-2 ring-primary")} onClick={() => setUserType("colaborador")}>
-                      <User className="w-6 h-6" />
-                      <span className="text-sm font-medium">Colaborador New</span>
-                    </Button>
-                    <Button type="button" variant={userType === "cliente" ? "default" : "outline"} className={cn("flex flex-col items-center gap-2 h-auto py-4 transition-all", userType === "cliente" && "ring-2 ring-primary", !allowClientRegistration && "opacity-50 cursor-not-allowed")} onClick={() => allowClientRegistration && setUserType("cliente")} disabled={!allowClientRegistration} title={!allowClientRegistration ? "Cadastro de clientes temporariamente desabilitado" : ""}>
-                      <Building className="w-6 h-6" />
-                      <span className="text-sm font-medium">Cliente</span>
-                      {!allowClientRegistration && <span className="text-xs text-muted-foreground">(Em breve)</span>}
-                    </Button>
-                  </div>
+                <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    <Building className="w-4 h-4 inline mr-1" />
+                    Cadastro de novo cliente
+                  </p>
                 </div>
 
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name" className="flex items-center gap-2">
                       <User className="w-4 h-4 text-primary" />
-                      {userType === 'cliente' ? 'Nome do Responsável' : 'Nome Completo'}
+                      Nome do Responsável
                     </Label>
-                    <Input id="signup-name" type="text" placeholder={userType === 'cliente' ? "Nome do responsável" : "Seu nome completo"} value={fullName} onChange={e => {
+                    <Input id="signup-name" type="text" placeholder="Nome do responsável" value={fullName} onChange={e => {
                   const value = e.target.value;
                   // Permite apenas letras, espaços e hífens
                   if (value === '' || /^[A-Za-zÀ-ÿ\s\-]+$/.test(value)) {
@@ -590,37 +543,24 @@ export const AuthForm = () => {
                 }} required />
                   </div>
 
-                  {userType === 'colaborador' && <div className="space-y-2">
-                      <Label htmlFor="cpf" className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-primary" />
-                        CPF
-                      </Label>
-                      <Input id="cpf" type="text" placeholder="000.000.000-00" value={cpf} onChange={e => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  setCpf(value);
-                }} maxLength={11} required />
-                    </div>}
+                  <div className="space-y-2">
+                    <Label htmlFor="company-name" className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-primary" />
+                      Nome da Empresa
+                    </Label>
+                    <Input id="company-name" type="text" placeholder="Razão social da empresa" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+                  </div>
 
-                  {userType === 'cliente' && <>
-                      <div className="space-y-2">
-                        <Label htmlFor="company-name" className="flex items-center gap-2">
-                          <Building className="w-4 h-4 text-primary" />
-                          Nome da Empresa
-                        </Label>
-                        <Input id="company-name" type="text" placeholder="Razão social da empresa" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="cnpj" className="flex items-center gap-2">
-                          <CreditCard className="w-4 h-4 text-primary" />
-                          CNPJ
-                        </Label>
-                        <Input id="cnpj" type="text" placeholder="00.000.000/0000-00" value={cnpj} onChange={e => {
-                    const value = e.target.value.replace(/\D/g, '');
-                    setCnpj(value);
-                  }} maxLength={14} required />
-                      </div>
-                    </>}
+                  <div className="space-y-2">
+                    <Label htmlFor="cnpj" className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-primary" />
+                      CNPJ
+                    </Label>
+                    <Input id="cnpj" type="text" placeholder="00.000.000/0000-00" value={cnpj} onChange={e => {
+                const value = e.target.value.replace(/\D/g, '');
+                setCnpj(value);
+              }} maxLength={14} required />
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-email" className="flex items-center gap-2">
