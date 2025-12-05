@@ -17,11 +17,28 @@ export const VideoPlayer = ({ youtubeUrl, title, onProgress90 }: VideoPlayerProp
     return match && match[2].length === 11 ? match[2] : null;
   };
 
-  // Extract Google Drive file ID
+  // Extract Google Drive file ID - suporta múltiplos formatos
   const getGoogleDriveId = (url: string) => {
-    const regExp = /drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/;
-    const match = url.match(regExp);
-    return match ? match[1] : null;
+    // Formatos suportados:
+    // https://drive.google.com/file/d/FILE_ID/view
+    // https://drive.google.com/file/d/FILE_ID/preview
+    // https://drive.google.com/open?id=FILE_ID
+    // https://drive.google.com/uc?id=FILE_ID
+    // https://drive.google.com/uc?export=view&id=FILE_ID
+    // https://drive.google.com/thumbnail?id=FILE_ID
+    const patterns = [
+      /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+      /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+      /drive\.google\.com\/uc\?(?:export=\w+&)?id=([a-zA-Z0-9_-]+)/,
+      /drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/,
+      /drive\.google\.com\/thumbnail\?id=([a-zA-Z0-9_-]+)/,
+    ];
+    
+    for (const regExp of patterns) {
+      const match = url.match(regExp);
+      if (match) return match[1];
+    }
+    return null;
   };
 
   // Detect video type
