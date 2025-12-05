@@ -28,21 +28,14 @@ interface SectionItemProps {
 
 const SectionItem = ({ section, allSections, level = 0, currentSearch }: SectionItemProps) => {
   const [expanded, setExpanded] = useState(false);
-  const navigate = useNavigate();
   const subsections = allSections.filter(s => s.parent_id === section.id);
   const hasSubsections = subsections.length > 0;
   const isActive = currentSearch.includes(`section=${section.id}`);
 
-  const handleSectionClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigate({ pathname: '/faq', search: `?section=${section.id}` });
-  };
-
   if (!hasSubsections) {
     return (
       <Link
-        to={{ pathname: '/faq', search: `?section=${section.id}` }}
+        to={`/faq?section=${section.id}`}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
           isActive
             ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
@@ -59,8 +52,8 @@ const SectionItem = ({ section, allSections, level = 0, currentSearch }: Section
     <div className="space-y-1">
       <Collapsible open={expanded} onOpenChange={setExpanded}>
         <div className="flex items-center gap-1" style={{ marginLeft: `${level * 0.5}rem` }}>
-          <button
-            onClick={handleSectionClick}
+          <Link
+            to={`/faq?section=${section.id}`}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors flex-1 text-left ${
               isActive
                 ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
@@ -68,7 +61,7 @@ const SectionItem = ({ section, allSections, level = 0, currentSearch }: Section
             }`}
           >
             <span className="flex-1">{section.title}</span>
-          </button>
+          </Link>
           <CollapsibleTrigger asChild>
             <button
               className="p-1 rounded hover:bg-sidebar-accent/30 text-sidebar-foreground/80"
@@ -301,24 +294,29 @@ export const Sidebar = () => {
 
           {/* Base de Conhecimento - Expandable Menu */}
           <Collapsible open={faqExpanded} onOpenChange={setFaqExpanded}>
-            <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-1">
               <Link
                 to="/faq"
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors flex-1 ${
                   location.pathname === '/faq'
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
                 }`}
               >
                 <HelpCircle size={20} />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Base de Conhecimento</span>
-                    <ChevronDown size={16} className={`transition-transform ${faqExpanded ? 'rotate-180' : ''}`} />
-                  </>
-                )}
+                {!collapsed && <span>Base de Conhecimento</span>}
               </Link>
-            </CollapsibleTrigger>
+              {!collapsed && (
+                <CollapsibleTrigger asChild>
+                  <button
+                    className="p-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ChevronDown size={16} className={`transition-transform ${faqExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+              )}
+            </div>
             {!collapsed && (
               <CollapsibleContent className="ml-6 mt-1 space-y-1">
                 {faqSections
