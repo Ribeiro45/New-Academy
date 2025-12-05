@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle, Loader2 } from "lucide-react";
 import logoNewStandard from '@/assets/logo-newstandard.png';
 import { api } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -16,23 +17,54 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [tokenValid, setTokenValid] = useState(true);
+  const [isSupabaseFlow, setIsSupabaseFlow] = useState(false);
 
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (!token) {
-      setTokenValid(false);
-    }
+    const initializeAuth = async () => {
+      // Check if this is a Supabase recovery flow (tokens in URL hash)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+
+      if (accessToken && type === 'recovery') {
+        // Supabase recovery flow
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: hashParams.get('refresh_token') || '',
+          });
+
+          if (error) {
+            console.error('Error setting session:', error);
+            setTokenValid(false);
+          } else {
+            setIsSupabaseFlow(true);
+            setTokenValid(true);
+          }
+        } catch (error) {
+          console.error('Error in Supabase auth:', error);
+          setTokenValid(false);
+        }
+      } else if (token) {
+        // Backend token flow
+        setIsSupabaseFlow(false);
+        setTokenValid(true);
+      } else {
+        setTokenValid(false);
+      }
+
+      setInitializing(false);
+    };
+
+    initializeAuth();
   }, [token]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!token) {
-      toast.error("Token de recuperação inválido");
-      return;
-    }
 
     if (newPassword !== confirmPassword) {
       toast.error("As senhas não coincidem");
@@ -47,15 +79,49 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      await api.auth.resetPassword(token, newPassword);
-      toast.success("Senha alterada com sucesso!");
-      navigate("/auth-api");
+      if (isSupabaseFlow) {
+        // Update password using Supabase
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) throw error;
+
+        toast.success("Senha alterada com sucesso!");
+        navigate("/auth");
+      } else {
+        // Update password using backend API
+        if (!token) {
+          toast.error("Token de recuperação inválido");
+          return;
+        }
+        
+        await api.auth.resetPassword(token, newPassword);
+        toast.success("Senha alterada com sucesso!");
+        navigate("/auth-api");
+      }
     } catch (error: any) {
       toast.error(error.message || "Erro ao redefinir senha. O link pode ter expirado.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary via-primary-glow to-accent relative overflow-hidden flex items-center justify-center p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary-glow/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+        <Card className="w-full max-w-md relative z-10 shadow-elegant">
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!tokenValid) {
     return (
@@ -84,14 +150,14 @@ const ResetPassword = () => {
           <CardContent>
             <Button 
               className="w-full" 
-              onClick={() => navigate('/forgot-password-api')}
+              onClick={() => navigate('/forgot-password')}
             >
               Solicitar Novo Link
             </Button>
             <Button 
               variant="ghost" 
               className="w-full mt-2"
-              onClick={() => navigate('/auth-api')}
+              onClick={() => navigate('/auth')}
             >
               Voltar para Login
             </Button>
