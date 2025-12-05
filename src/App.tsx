@@ -18,6 +18,7 @@ import Course from "./pages/Course";
 import Certificates from "./pages/Certificates";
 import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
+import FAQSection from "./pages/FAQSection";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import ForgotPasswordAPI from "./pages/ForgotPasswordAPI";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/course/:id" element={<Course />} />
             <Route path="/certificates" element={<Certificates />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/faq/section/:sectionId" element={<FAQSection />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/courses" element={<EditorRoute><AdminCoursesManagement /></EditorRoute>} />
