@@ -26,9 +26,8 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      // Call the Edge Function
-      const { data, error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
