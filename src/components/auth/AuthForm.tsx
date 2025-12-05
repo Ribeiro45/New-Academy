@@ -565,9 +565,6 @@ export const AuthForm = () => {
                       <span className="text-sm font-medium">Cliente</span>
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Todos os cadastros iniciam como cliente. O administrador definirá seu tipo após aprovação.
-                  </p>
                 </div>
 
                 <form onSubmit={handleSignUp} className="space-y-4">
