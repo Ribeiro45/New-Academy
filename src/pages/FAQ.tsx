@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,7 @@ interface FAQ {
 }
 
 export default function FAQ() {
+  const [searchParams] = useSearchParams();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<string>('colaborador');
@@ -35,18 +37,12 @@ export default function FAQ() {
   const [pageNumbers, setPageNumbers] = useState<{ [key: string]: number }>({});
   const [selectedFaq, setSelectedFaq] = useState<FAQ | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  
+  const selectedSection = searchParams.get('section');
 
   useEffect(() => {
     loadUserType();
     loadFAQs();
-    
-    // Check if there's a section parameter in URL
-    const params = new URLSearchParams(window.location.search);
-    const sectionId = params.get('section');
-    if (sectionId) {
-      setSelectedSection(sectionId);
-    }
   }, []);
 
   const loadUserType = async () => {

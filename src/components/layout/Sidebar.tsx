@@ -28,9 +28,16 @@ interface SectionItemProps {
 
 const SectionItem = ({ section, allSections, level = 0, currentSearch }: SectionItemProps) => {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
   const subsections = allSections.filter(s => s.parent_id === section.id);
   const hasSubsections = subsections.length > 0;
   const isActive = currentSearch.includes(`section=${section.id}`);
+
+  const handleSectionClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/faq?section=${section.id}`);
+  };
 
   if (!hasSubsections) {
     return (
@@ -51,18 +58,23 @@ const SectionItem = ({ section, allSections, level = 0, currentSearch }: Section
   return (
     <div className="space-y-1">
       <Collapsible open={expanded} onOpenChange={setExpanded}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" style={{ marginLeft: `${level * 0.5}rem` }}>
+          <button
+            onClick={handleSectionClick}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors flex-1 text-left ${
+              isActive
+                ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/30'
+            }`}
+          >
+            <span className="flex-1">{section.title}</span>
+          </button>
           <CollapsibleTrigger asChild>
             <button
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors flex-1 ${
-                isActive
-                  ? 'bg-sidebar-accent/50 text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/30'
-              }`}
-              style={{ marginLeft: `${level * 0.5}rem` }}
+              className="p-1 rounded hover:bg-sidebar-accent/30 text-sidebar-foreground/80"
+              onClick={(e) => e.stopPropagation()}
             >
               <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
-              <span className="flex-1 text-left">{section.title}</span>
             </button>
           </CollapsibleTrigger>
         </div>
