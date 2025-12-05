@@ -104,16 +104,16 @@ const Courses = () => {
       if (coursesRes.data && courseAccessRes.data) {
         // Filter courses based on user type and course access
         const accessibleCourses = coursesRes.data.filter(course => {
-          // Check if course has specific access rules
-          const accessRules = courseAccessRes.data.filter(a => a.course_id === course.id);
+          // Check all access rules for this course
+          const accessRulesForCourse = courseAccessRes.data.filter(a => a.course_id === course.id);
           
-          // If no access rules, check course_target
-          if (accessRules.length === 0) {
+          if (accessRulesForCourse.length > 0) {
+            // If course has access rules, ONLY those user types can see it
+            return accessRulesForCourse.some(rule => rule.user_type === userType);
+          } else {
+            // If no access rules, use course_target default
             return course.course_target === 'both' || course.course_target === userType;
           }
-          
-          // If has access rules, check if user type is allowed
-          return accessRules.some(rule => rule.user_type === userType || rule.user_type === 'both');
         });
         
         setCourses(accessibleCourses);
