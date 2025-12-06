@@ -55,7 +55,7 @@ export const CourseCard = ({
           <div className="flex justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <PlayCircle className="w-4 h-4" />
-              <span>{completedLessons}/{totalLessons} aulas</span>
+              <span>{completedLessons}/{totalLessons} {totalLessons === 1 ? 'aula' : 'aulas'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
