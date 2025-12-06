@@ -117,15 +117,23 @@ const Course = () => {
 
   const loadCourse = async () => {
     try {
-      const [courseRes, modulesRes, lessonsRes, progressRes, moduleQuizzesRes, lessonQuizzesRes, certificateRes] = await Promise.all([
+      // First fetch lessons to get their IDs for filtering progress
+      const [courseRes, modulesRes, lessonsRes, moduleQuizzesRes, lessonQuizzesRes, certificateRes] = await Promise.all([
         supabase.from("courses").select("*").eq("id", id).single(),
         supabase.from("modules").select("*").eq("course_id", id).order("order_index"),
         supabase.from("lessons").select("*").eq("course_id", id).order("order_index"),
-        supabase.from("user_progress").select("*").eq("user_id", user?.id),
         supabase.from("quizzes").select("id, module_id").eq("course_id", id).not("module_id", "is", null),
         supabase.from("quizzes").select("id, lesson_id").eq("course_id", id).not("lesson_id", "is", null),
         supabase.from("certificates").select("id").eq("user_id", user?.id).eq("course_id", id).maybeSingle(),
       ]);
+
+      // Get lesson IDs from this course to filter progress correctly
+      const lessonIds = lessonsRes.data?.map(l => l.id) || [];
+      
+      // Fetch progress only for lessons in this course
+      const progressRes = lessonIds.length > 0
+        ? await supabase.from("user_progress").select("*").eq("user_id", user?.id).in("lesson_id", lessonIds)
+        : { data: [] };
 
       if (courseRes.data) setCourse(courseRes.data);
       if (certificateRes.data) setHasCertificate(true);
@@ -316,21 +324,21 @@ const Course = () => {
                         <p className="text-sm text-muted-foreground">Duração</p>
                       </div>
                     )}
-                    {course?.total_modules && (
+                    {modules.length > 0 && (
                       <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                         <GraduationCap className="w-8 h-8 text-primary mb-2" />
-                        <p className="text-2xl font-bold text-primary">{course.total_modules}</p>
+                        <p className="text-2xl font-bold text-primary">{modules.length}</p>
                         <p className="text-sm text-muted-foreground">
-                          {course.total_modules === 1 ? 'Módulo' : 'Módulos'}
+                          {modules.length === 1 ? 'Módulo' : 'Módulos'}
                         </p>
                       </div>
                     )}
-                    {course?.total_lessons && (
+                    {lessons.length > 0 && (
                       <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                         <BookOpen className="w-8 h-8 text-primary mb-2" />
-                        <p className="text-2xl font-bold text-primary">{course.total_lessons}</p>
+                        <p className="text-2xl font-bold text-primary">{lessons.length}</p>
                         <p className="text-sm text-muted-foreground">
-                          {course.total_lessons === 1 ? 'Aula' : 'Aulas'}
+                          {lessons.length === 1 ? 'Aula' : 'Aulas'}
                         </p>
                       </div>
                     )}
@@ -339,7 +347,7 @@ const Course = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            {progressPercent === 100 && (
+            {progressPercent >= 100 && (
               <Button 
                 onClick={() => navigate("/certificates")}
                 className="w-full"
