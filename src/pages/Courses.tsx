@@ -201,18 +201,18 @@ const Courses = () => {
                       {course.total_modules && (
                         <div className="flex items-center gap-1">
                           <BookOpen className="w-4 h-4" />
-                          <span>{course.total_modules} módulos</span>
+                          <span>{course.total_modules} {course.total_modules === 1 ? 'módulo' : 'módulos'}</span>
                         </div>
                       )}
                       {course.total_lessons && (
                         <div className="flex items-center gap-1">
                           <Award className="w-4 h-4" />
-                          <span>{course.total_lessons} aulas</span>
+                          <span>{course.total_lessons} {course.total_lessons === 1 ? 'aula' : 'aulas'}</span>
                         </div>
                       )}
                       {course.duration && (
                         <div className="flex items-center gap-1">
-                          <Award className="w-4 h-4" />
+                          <Clock className="w-4 h-4" />
                           <span>{course.duration}</span>
                         </div>
                       )}
@@ -275,14 +275,18 @@ const Courses = () => {
                     <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                       <BookOpen className="w-6 h-6 text-primary mb-2" />
                       <p className="text-xl font-bold text-primary">{selectedCourse.total_modules}</p>
-                      <p className="text-xs text-muted-foreground">Módulos</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCourse.total_modules === 1 ? 'Módulo' : 'Módulos'}
+                      </p>
                     </div>
                   )}
                   {selectedCourse.total_lessons && (
                     <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                       <Award className="w-6 h-6 text-primary mb-2" />
                       <p className="text-xl font-bold text-primary">{selectedCourse.total_lessons}</p>
-                      <p className="text-xs text-muted-foreground">Aulas</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCourse.total_lessons === 1 ? 'Aula' : 'Aulas'}
+                      </p>
                     </div>
                   )}
                   {selectedCourse.duration && (
