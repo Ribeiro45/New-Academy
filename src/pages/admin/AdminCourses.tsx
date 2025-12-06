@@ -19,7 +19,8 @@ const courseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
   thumbnail_url: z.string().optional().or(z.literal('')),
-  duration: z.string().optional(),
+  duration_hours: z.number().min(0).optional(),
+  duration_minutes: z.number().min(0).max(59).optional(),
   total_modules: z.number().min(0).optional(),
   total_lessons: z.number().min(0).optional(),
   course_target: z.enum(['colaborador', 'cliente', 'both']).default('both'),
@@ -67,7 +68,8 @@ function AdminCourses() {
       title: '', 
       description: '', 
       thumbnail_url: '',
-      duration: '',
+      duration_hours: 0,
+      duration_minutes: 0,
       total_modules: 0,
       total_lessons: 0,
       course_target: 'both' as const,
@@ -123,7 +125,28 @@ function AdminCourses() {
     setModules(data || []);
   };
 
+  const formatDurationForStorage = (hours: number, minutes: number): string | null => {
+    if (hours === 0 && minutes === 0) return null;
+    if (hours === 0) return `${minutes}min`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}min`;
+  };
+
+  const parseDurationFromStorage = (duration: string | null): { hours: number; minutes: number } => {
+    if (!duration) return { hours: 0, minutes: 0 };
+    
+    const hoursMatch = duration.match(/(\d+)\s*h/i);
+    const minutesMatch = duration.match(/(\d+)\s*min/i);
+    
+    return {
+      hours: hoursMatch ? parseInt(hoursMatch[1]) : 0,
+      minutes: minutesMatch ? parseInt(minutesMatch[1]) : 0,
+    };
+  };
+
   const onSubmitCourse = async (values: z.infer<typeof courseSchema>) => {
+    const duration = formatDurationForStorage(values.duration_hours || 0, values.duration_minutes || 0);
+    
     if (editingCourse) {
       // Update existing course
       const { error } = await supabase
@@ -132,7 +155,7 @@ function AdminCourses() {
           title: values.title,
           description: values.description || null,
           thumbnail_url: values.thumbnail_url || null,
-          duration: values.duration || null,
+          duration: duration,
           total_modules: values.total_modules || null,
           total_lessons: values.total_lessons || null,
           course_target: values.course_target || 'both',
@@ -154,7 +177,7 @@ function AdminCourses() {
         title: values.title,
         description: values.description || null,
         thumbnail_url: values.thumbnail_url || null,
-        duration: values.duration || null,
+        duration: duration,
         total_modules: values.total_modules || null,
         total_lessons: values.total_lessons || null,
         course_target: values.course_target || 'both',
@@ -577,19 +600,45 @@ function AdminCourses() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={courseForm.control}
-                      name="duration"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Duração (ex: 8 horas)</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="8 horas" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={courseForm.control}
+                        name="duration_hours"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Horas</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={courseForm.control}
+                        name="duration_minutes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Minutos</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="59"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={courseForm.control}
@@ -661,11 +710,13 @@ function AdminCourses() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingCourse(course);
+                            const parsedDuration = parseDurationFromStorage(course.duration);
                             courseForm.reset({
                               title: course.title,
                               description: course.description || '',
                               thumbnail_url: course.thumbnail_url || '',
-                              duration: course.duration || '',
+                              duration_hours: parsedDuration.hours,
+                              duration_minutes: parsedDuration.minutes,
                               total_modules: course.total_modules || 0,
                               total_lessons: course.total_lessons || 0,
                               course_target: course.course_target || 'both',
