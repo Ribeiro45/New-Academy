@@ -45,6 +45,40 @@ interface CourseData {
   total_lessons: number | null;
 }
 
+const formatDuration = (duration: string): string => {
+  const hoursMatch = duration.match(/(\d+(?:\.\d+)?)\s*h/i);
+  const minutesMatch = duration.match(/(\d+)\s*min/i);
+  
+  let totalMinutes = 0;
+  
+  if (hoursMatch) {
+    totalMinutes += parseFloat(hoursMatch[1]) * 60;
+  }
+  if (minutesMatch) {
+    totalMinutes += parseInt(minutesMatch[1]);
+  }
+  
+  if (!hoursMatch && !minutesMatch) {
+    const numMatch = duration.match(/(\d+(?:\.\d+)?)/);
+    if (numMatch) {
+      totalMinutes = parseFloat(numMatch[1]) * 60;
+    } else {
+      return duration;
+    }
+  }
+  
+  if (totalMinutes >= 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (mins > 0) {
+      return `${hours} ${hours === 1 ? 'hora' : 'horas'} e ${mins} ${mins === 1 ? 'minuto' : 'minutos'}`;
+    }
+    return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  } else {
+    return `${totalMinutes} ${totalMinutes === 1 ? 'minuto' : 'minutos'}`;
+  }
+};
+
 const Course = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -278,7 +312,7 @@ const Course = () => {
                     {course?.duration && (
                       <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                         <Clock className="w-8 h-8 text-primary mb-2" />
-                        <p className="text-2xl font-bold text-primary">{course.duration}</p>
+                        <p className="text-2xl font-bold text-primary">{formatDuration(course.duration)}</p>
                         <p className="text-sm text-muted-foreground">Duração</p>
                       </div>
                     )}
