@@ -182,45 +182,32 @@ const Course = () => {
   const toggleLessonComplete = async (lessonId: string) => {
     const isCompleted = completedLessons.has(lessonId);
     
-    // Prevent unmarking lessons if course is complete
-    if (isCompleted && isCourseComplete) {
-      toast.info("Curso concluído! As aulas não podem ser desmarcadas.");
+    // Prevent unmarking lessons that are already completed
+    if (isCompleted) {
       return;
     }
     
     try {
-      if (isCompleted) {
-        await supabase
-          .from("user_progress")
-          .delete()
-          .eq("user_id", user?.id)
-          .eq("lesson_id", lessonId);
-        
-        setCompletedLessons(prev => {
-          const next = new Set(prev);
-          next.delete(lessonId);
-          return next;
+      await supabase
+        .from("user_progress")
+        .upsert({
+          user_id: user?.id,
+          lesson_id: lessonId,
+          completed: true,
+          completed_at: new Date().toISOString(),
         });
-      } else {
-        await supabase
-          .from("user_progress")
-          .upsert({
-            user_id: user?.id,
-            lesson_id: lessonId,
-            completed: true,
-            completed_at: new Date().toISOString(),
-          });
-        
-        setCompletedLessons(prev => new Set(prev).add(lessonId));
-        toast.success("Aula marcada como concluída!");
-        
-        // Check if course is complete and issue certificate
-        if (user?.id && id) {
-          await supabase.rpc('check_and_issue_certificate', {
-            p_user_id: user.id,
-            p_course_id: id
-          });
-        }
+      
+      setCompletedLessons(prev => new Set(prev).add(lessonId));
+      toast.success("Aula marcada como concluída!");
+      
+      // Check if course is complete and issue certificate
+      const newCompletedCount = completedLessons.size + 1;
+      if (newCompletedCount === lessons.length && user?.id && id) {
+        await supabase.rpc('check_and_issue_certificate', {
+          p_user_id: user.id,
+          p_course_id: id
+        });
+        setHasCertificate(true);
       }
     } catch (error) {
       console.error("Error updating progress:", error);
@@ -299,14 +286,18 @@ const Course = () => {
                       <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                         <GraduationCap className="w-8 h-8 text-primary mb-2" />
                         <p className="text-2xl font-bold text-primary">{course.total_modules}</p>
-                        <p className="text-sm text-muted-foreground">Módulos</p>
+                        <p className="text-sm text-muted-foreground">
+                          {course.total_modules === 1 ? 'Módulo' : 'Módulos'}
+                        </p>
                       </div>
                     )}
                     {course?.total_lessons && (
                       <div className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg">
                         <BookOpen className="w-8 h-8 text-primary mb-2" />
                         <p className="text-2xl font-bold text-primary">{course.total_lessons}</p>
-                        <p className="text-sm text-muted-foreground">Aulas</p>
+                        <p className="text-sm text-muted-foreground">
+                          {course.total_lessons === 1 ? 'Aula' : 'Aulas'}
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -314,14 +305,14 @@ const Course = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            {hasCertificate && progressPercent === 100 && (
+            {progressPercent === 100 && (
               <Button 
                 onClick={() => navigate("/certificates")}
                 className="w-full"
                 size="lg"
               >
                 <Award className="w-5 h-5 mr-2" />
-                Gerar Certificado
+                {hasCertificate ? 'Visualizar Certificado' : 'Gerar Certificado'}
               </Button>
             )}
           </div>
@@ -352,24 +343,20 @@ const Course = () => {
                           <CardTitle>{currentLesson.title}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <Button
-                            onClick={() => toggleLessonComplete(currentLesson.id)}
-                            variant={completedLessons.has(currentLesson.id) ? "secondary" : "default"}
-                            disabled={isCourseComplete && completedLessons.has(currentLesson.id)}
-                            className="w-full"
-                          >
-                            {completedLessons.has(currentLesson.id) ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                {isCourseComplete ? "Aula concluída (Modo visualização)" : "Marcar como não concluída"}
-                              </>
-                            ) : (
-                              <>
-                                <Circle className="w-4 h-4 mr-2" />
-                                Marcar como concluída
-                              </>
-                            )}
-                          </Button>
+                          {completedLessons.has(currentLesson.id) ? (
+                            <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted rounded-md text-muted-foreground">
+                              <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              <span>Aula concluída</span>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => toggleLessonComplete(currentLesson.id)}
+                              className="w-full"
+                            >
+                              <Circle className="w-4 h-4 mr-2" />
+                              Marcar como concluída
+                            </Button>
+                          )}
                         </CardContent>
                       </Card>
                     </div>
