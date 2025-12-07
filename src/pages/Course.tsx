@@ -16,6 +16,7 @@ import { CheckCircle2, Circle, ArrowLeft, ChevronDown, Clock, BookOpen, Graduati
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
+import { CertificatePreview } from "@/components/certificates/CertificatePreview";
 
 interface Lesson {
   id: string;
@@ -94,6 +95,10 @@ const Course = () => {
   const [loading, setLoading] = useState(true);
   const [infoOpen, setInfoOpen] = useState(false);
   const [hasCertificate, setHasCertificate] = useState(false);
+  const [certificateData, setCertificateData] = useState<{ certificate_number: string; issued_at: string } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; cpf: string } | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [generatingCertificate, setGeneratingCertificate] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -118,13 +123,14 @@ const Course = () => {
   const loadCourse = async () => {
     try {
       // First fetch lessons to get their IDs for filtering progress
-      const [courseRes, modulesRes, lessonsRes, moduleQuizzesRes, lessonQuizzesRes, certificateRes] = await Promise.all([
+      const [courseRes, modulesRes, lessonsRes, moduleQuizzesRes, lessonQuizzesRes, certificateRes, profileRes] = await Promise.all([
         supabase.from("courses").select("*").eq("id", id).single(),
         supabase.from("modules").select("*").eq("course_id", id).order("order_index"),
         supabase.from("lessons").select("*").eq("course_id", id).order("order_index"),
         supabase.from("quizzes").select("id, module_id").eq("course_id", id).not("module_id", "is", null),
         supabase.from("quizzes").select("id, lesson_id").eq("course_id", id).not("lesson_id", "is", null),
-        supabase.from("certificates").select("id").eq("user_id", user?.id).eq("course_id", id).maybeSingle(),
+        supabase.from("certificates").select("certificate_number, issued_at").eq("user_id", user?.id).eq("course_id", id).maybeSingle(),
+        supabase.from("profiles").select("full_name, cpf").eq("id", user?.id).maybeSingle(),
       ]);
 
       // Get lesson IDs from this course to filter progress correctly
@@ -136,7 +142,11 @@ const Course = () => {
         : { data: [] };
 
       if (courseRes.data) setCourse(courseRes.data);
-      if (certificateRes.data) setHasCertificate(true);
+      if (certificateRes.data) {
+        setHasCertificate(true);
+        setCertificateData(certificateRes.data);
+      }
+      if (profileRes.data) setProfile(profileRes.data);
       
       if (lessonsRes.data) {
         setLessons(lessonsRes.data);
@@ -261,6 +271,44 @@ const Course = () => {
     ? (completedLessons.size / lessons.length) * 100 
     : 0;
 
+  const totalHours = Math.round(lessons.reduce((acc, l) => acc + (l.duration_minutes || 0), 0) / 60) || 1;
+
+  const generateCertificate = async () => {
+    if (!user || !course || !id) return;
+    
+    setGeneratingCertificate(true);
+    try {
+      // Generate unique certificate number
+      const year = new Date().getFullYear();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const certificateNumber = `CERT-${year}-${random}-${timestamp}`;
+      
+      const { data, error } = await supabase
+        .from("certificates")
+        .insert({
+          user_id: user.id,
+          course_id: id,
+          certificate_number: certificateNumber,
+          issued_at: new Date().toISOString()
+        })
+        .select("certificate_number, issued_at")
+        .single();
+      
+      if (error) throw error;
+      
+      setHasCertificate(true);
+      setCertificateData(data);
+      toast.success("Certificado gerado com sucesso!");
+      setPreviewOpen(true);
+    } catch (error) {
+      console.error("Erro ao gerar certificado:", error);
+      toast.error("Erro ao gerar certificado");
+    } finally {
+      setGeneratingCertificate(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -349,13 +397,31 @@ const Course = () => {
 
             {progressPercent >= 100 && (
               <Button 
-                onClick={() => navigate("/certificates")}
+                onClick={hasCertificate ? () => setPreviewOpen(true) : generateCertificate}
                 className="w-full"
                 size="lg"
+                disabled={generatingCertificate}
               >
                 <Award className="w-5 h-5 mr-2" />
-                {hasCertificate ? 'Visualizar Certificado' : 'Gerar Certificado'}
+                {generatingCertificate 
+                  ? 'Gerando...' 
+                  : hasCertificate 
+                    ? 'Visualizar Certificado' 
+                    : 'Gerar Certificado'}
               </Button>
+            )}
+
+            {certificateData && (
+              <CertificatePreview
+                open={previewOpen}
+                onOpenChange={setPreviewOpen}
+                courseTitle={course?.title || ""}
+                studentName={profile?.full_name || "Estudante"}
+                studentCPF={profile?.cpf || "000.000.000-00"}
+                certificateNumber={certificateData.certificate_number}
+                issuedAt={certificateData.issued_at}
+                totalHours={totalHours}
+              />
             )}
           </div>
 
