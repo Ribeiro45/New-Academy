@@ -31,6 +31,7 @@ import AdminCourseAccess from "./pages/admin/AdminCourseAccess";
 import AdminDemo from "./pages/admin/AdminDemo";
 import AdminFAQ from "./pages/admin/AdminFAQ";
 import AdminManagement from "./pages/admin/AdminManagement";
+import AdminLogs from "./pages/admin/AdminLogs";
 import LeaderGroup from "./pages/LeaderGroup";
 import NotFound from "./pages/NotFound";
 
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/admin/faq" element={<AdminRoute><AdminFAQ /></AdminRoute>} />
             <Route path="/admin/demo" element={<AdminRoute><AdminDemo /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
+            <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
             <Route path="/leader/group" element={<LeaderRoute><LeaderGroup /></LeaderRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

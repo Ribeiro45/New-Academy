@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, BookOpen, Award, Users, LogOut, Moon, Sun, Shield, Library, User, HelpCircle, ChevronDown } from 'lucide-react';
+import { Home, BookOpen, Award, Users, LogOut, Moon, Sun, Shield, Library, User, HelpCircle, ChevronDown, ScrollText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -255,6 +255,7 @@ export const Sidebar = () => {
     { icon: HelpCircle, label: 'Gerenciar Base de Conhecimento', path: '/admin/faq' },
     { icon: BookOpen, label: 'Editor de Demo', path: '/admin/demo' },
     { icon: BookOpen, label: 'Configurações do Site', path: '/admin/settings' },
+    { icon: ScrollText, label: 'Logs de Atividade', path: '/admin/logs' },
   ];
 
   const editorMenuItems = [
