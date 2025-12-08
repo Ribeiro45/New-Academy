@@ -166,7 +166,12 @@ const Dashboard = () => {
       progress: progressPercent
     };
   };
-  const completedLessonsCount = progress.filter(p => p.completed).length;
+  // Filtrar apenas progressos de lições que pertencem aos cursos matriculados
+  const validLessonIds = lessons.map(l => l.id);
+  const completedLessonsCount = Math.min(
+    progress.filter(p => p.completed && validLessonIds.includes(p.lesson_id)).length,
+    lessons.length
+  );
 
   // Cursos finalizados são aqueles que possuem certificado
   const completedCoursesCount = certificatesCount;
