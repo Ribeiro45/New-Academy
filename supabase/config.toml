@@ -1,5 +1,8 @@
 project_id = "xeuulrwbcbxycomuaxzd"
 
+[functions.grade-quiz]
+verify_jwt = false
+
 [functions.send-password-reset]
 verify_jwt = false
 
