@@ -68,7 +68,20 @@ router.get('/module/:moduleId', async (req, res: Response) => {
       return;
     }
 
-    res.json(quiz);
+    // Remove is_correct from answers for security
+    const sanitizedQuiz = {
+      ...quiz,
+      questions: quiz.questions.map(q => ({
+        ...q,
+        answers: q.answers.map(a => ({
+          id: a.id,
+          answer: a.answer,
+          questionId: a.questionId,
+        })),
+      })),
+    };
+
+    res.json(sanitizedQuiz);
   } catch (error) {
     res.status(500).json({ error: 'Failed to get quiz' });
   }
@@ -96,7 +109,20 @@ router.get('/course/:courseId/final', async (req, res: Response) => {
       return;
     }
 
-    res.json(quiz);
+    // Remove is_correct from answers for security
+    const sanitizedQuiz = {
+      ...quiz,
+      questions: quiz.questions.map(q => ({
+        ...q,
+        answers: q.answers.map(a => ({
+          id: a.id,
+          answer: a.answer,
+          questionId: a.questionId,
+        })),
+      })),
+    };
+
+    res.json(sanitizedQuiz);
   } catch (error) {
     res.status(500).json({ error: 'Failed to get final exam' });
   }

@@ -22,6 +22,7 @@ export const ModuleQuizTaker = ({ moduleId, onComplete }: ModuleQuizTakerProps) 
   const [loading, setLoading] = useState(true);
   const [attemptCount, setAttemptCount] = useState(0);
   const [maxAttemptsReached, setMaxAttemptsReached] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchQuiz();
@@ -54,9 +55,9 @@ export const ModuleQuizTaker = ({ moduleId, onComplete }: ModuleQuizTakerProps) 
 
     setQuestions(questionsData || []);
 
-    // Fetch answers
+    // Fetch answers from the secure view (without is_correct)
     const { data: answersData } = await supabase
-      .from('quiz_answers')
+      .from('quiz_answer_options')
       .select('*')
       .in('question_id', (questionsData || []).map(q => q.id));
 
@@ -98,109 +99,80 @@ export const ModuleQuizTaker = ({ moduleId, onComplete }: ModuleQuizTakerProps) 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    let correctCount = 0;
-    const responses = [];
+    setIsSubmitting(true);
 
-    // Fetch correct answers from the backend for validation
-    const { data: correctAnswersData } = await supabase
-      .from('quiz_answers')
-      .select('id, question_id, is_correct')
-      .in('question_id', questions.map(q => q.id));
+    try {
+      // Use the secure Edge Function to grade the quiz
+      const { data, error } = await supabase.functions.invoke('grade-quiz', {
+        body: {
+          quizId: quiz.id,
+          answers: userAnswers,
+        },
+      });
 
-    for (const question of questions) {
-      const selectedAnswerId = userAnswers[question.id];
-      const correctAnswer = correctAnswersData?.find(
-        a => a.question_id === question.id && a.is_correct
-      );
-      const isCorrect = selectedAnswerId === correctAnswer?.id;
-      
-      if (isCorrect) {
-        correctCount++;
+      if (error) {
+        console.error('Quiz grading error:', error);
+        toast.error('Erro ao processar resposta');
+        setIsSubmitting(false);
+        return;
       }
 
-      responses.push({
-        question_id: question.id,
-        answer_id: selectedAnswerId,
-        is_correct: isCorrect,
-      });
-    }
+      const { score, passed, correctCount, totalQuestions, attemptCount: newAttemptCount } = data;
 
-    const score = Math.round((correctCount / questions.length) * 100);
-    const passed = score >= quiz.passing_score;
+      setResult({ score, passed, correctCount, total: totalQuestions });
+      setSubmitted(true);
+      setAttemptCount(newAttemptCount);
 
-    const { data: attempt, error: attemptError } = await supabase
-      .from('user_quiz_attempts')
-      .insert({
-        user_id: user.id,
-        quiz_id: quiz.id,
-        score,
-        passed,
-      })
-      .select()
-      .single();
+      if (passed) {
+        toast.success('Parabéns! Você passou na prova do módulo!');
+        onComplete();
+      } else {
+        if (newAttemptCount >= 2) {
+          // Reset module progress
+          const { data: lessonsData } = await supabase
+            .from('lessons')
+            .select('id')
+            .eq('module_id', moduleId);
 
-    if (attemptError) {
-      toast.error('Erro ao salvar tentativa');
-      return;
-    }
+          if (lessonsData) {
+            await supabase
+              .from('user_progress')
+              .delete()
+              .eq('user_id', user.id)
+              .in('lesson_id', lessonsData.map(l => l.id));
+          }
 
-    for (const response of responses) {
-      await supabase.from('user_quiz_responses').insert({
-        attempt_id: attempt.id,
-        ...response,
-      });
-    }
-
-    setResult({ score, passed, correctCount, total: questions.length });
-    setSubmitted(true);
-    setAttemptCount(attemptCount + 1);
-
-    if (passed) {
-      toast.success('Parabéns! Você passou na prova do módulo!');
-      onComplete();
-    } else {
-      if (attemptCount + 1 >= 2) {
-        // Reset module progress
-        const { data: lessonsData } = await supabase
-          .from('lessons')
-          .select('id')
-          .eq('module_id', moduleId);
-
-        if (lessonsData) {
-          await supabase
-            .from('user_progress')
-            .delete()
-            .eq('user_id', user.id)
-            .in('lesson_id', lessonsData.map(l => l.id));
-        }
-
-        // Delete quiz attempts and responses to allow retaking
-        const { data: attemptsToDelete } = await supabase
-          .from('user_quiz_attempts')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('quiz_id', quiz.id);
-
-        if (attemptsToDelete && attemptsToDelete.length > 0) {
-          // Delete responses first (foreign key constraint)
-          await supabase
-            .from('user_quiz_responses')
-            .delete()
-            .in('attempt_id', attemptsToDelete.map(a => a.id));
-
-          // Then delete attempts
-          await supabase
+          // Delete quiz attempts and responses to allow retaking
+          const { data: attemptsToDelete } = await supabase
             .from('user_quiz_attempts')
-            .delete()
+            .select('id')
             .eq('user_id', user.id)
             .eq('quiz_id', quiz.id);
-        }
 
-        setMaxAttemptsReached(true);
-        toast.error('Você usou todas as tentativas! O progresso do módulo foi resetado.');
-      } else {
-        toast.error(`Você não atingiu a nota mínima. Você tem mais ${2 - (attemptCount + 1)} tentativa(s).`);
+          if (attemptsToDelete && attemptsToDelete.length > 0) {
+            await supabase
+              .from('user_quiz_responses')
+              .delete()
+              .in('attempt_id', attemptsToDelete.map(a => a.id));
+
+            await supabase
+              .from('user_quiz_attempts')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('quiz_id', quiz.id);
+          }
+
+          setMaxAttemptsReached(true);
+          toast.error('Você usou todas as tentativas! O progresso do módulo foi resetado.');
+        } else {
+          toast.error(`Você não atingiu a nota mínima. Você tem mais ${2 - newAttemptCount} tentativa(s).`);
+        }
       }
+    } catch (err) {
+      console.error('Submit error:', err);
+      toast.error('Erro ao enviar respostas');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -312,8 +284,8 @@ export const ModuleQuizTaker = ({ moduleId, onComplete }: ModuleQuizTakerProps) 
             </RadioGroup>
           </div>
         ))}
-        <Button onClick={handleSubmit} className="w-full">
-          Enviar Respostas
+        <Button onClick={handleSubmit} className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? 'Enviando...' : 'Enviar Respostas'}
         </Button>
       </CardContent>
     </Card>
