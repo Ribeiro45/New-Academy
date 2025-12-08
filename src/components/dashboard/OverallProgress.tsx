@@ -20,7 +20,7 @@ export const OverallProgress = ({
   studyTime,
 }: OverallProgressProps) => {
   const overallProgress = totalLessons > 0 
-    ? (completedLessons / totalLessons) * 100 
+    ? Math.min((completedLessons / totalLessons) * 100, 100)
     : 0;
 
   const formatStudyTime = (minutes: number) => {
