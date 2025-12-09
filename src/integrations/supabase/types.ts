@@ -808,15 +808,13 @@ export type Database = {
         Returns: undefined
       }
       generate_certificate_number: { Args: never; Returns: string }
-      has_role:
-        | { Args: { _arg1: string; _arg2: string }; Returns: boolean }
-        | {
-            Args: {
-              _role: Database["public"]["Enums"]["app_role"]
-              _user_id: string
-            }
-            Returns: boolean
-          }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "editor" | "lider"
