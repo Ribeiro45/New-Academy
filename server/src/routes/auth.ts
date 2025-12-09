@@ -256,6 +256,21 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     }
     const { email, password, fullName, cpf, cnpj, companyName, userType, sendConfirmationEmail } = parsed.data;
 
+    // Check if client registration is allowed
+    if (userType === 'cliente') {
+      const registrationSetting = await prisma.siteSetting.findUnique({
+        where: { settingKey: 'registration' },
+      });
+      
+      if (registrationSetting) {
+        const settings = registrationSetting.settingValue as { clientRegistrationEnabled?: boolean };
+        if (settings.clientRegistrationEnabled === false) {
+          res.status(403).json({ error: 'Cadastro de clientes está desabilitado no momento' });
+          return;
+        }
+      }
+    }
+
     // Check if user exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
