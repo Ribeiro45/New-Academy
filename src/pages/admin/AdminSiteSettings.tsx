@@ -62,11 +62,15 @@ interface TopicCard {
   link_url: string;
 }
 
+interface EditingTopicCard extends TopicCard {
+  isDirty?: boolean;
+}
+
 const AdminSiteSettings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [topicCards, setTopicCards] = useState<TopicCard[]>([]);
+  const [topicCards, setTopicCards] = useState<EditingTopicCard[]>([]);
   const [settings, setSettings] = useState<SiteSettings>({
     homepage_hero: {
       badge_text: "",
@@ -226,21 +230,30 @@ const AdminSiteSettings = () => {
     }
   };
 
-  const handleUpdateTopicCard = async (id: string, updates: Partial<TopicCard>) => {
+  const updateLocalTopicCard = (id: string, updates: Partial<TopicCard>) => {
+    setTopicCards(prev => prev.map(card => 
+      card.id === id ? { ...card, ...updates, isDirty: true } : card
+    ));
+  };
+
+  const handleSaveTopicCard = async (card: EditingTopicCard) => {
     try {
+      const { isDirty, ...cardData } = card;
       const { error } = await supabase
         .from("topic_cards")
-        .update(updates)
-        .eq("id", id);
+        .update(cardData)
+        .eq("id", card.id);
 
       if (error) throw error;
+
+      setTopicCards(prev => prev.map(c => 
+        c.id === card.id ? { ...c, isDirty: false } : c
+      ));
 
       toast({
         title: "Sucesso",
         description: "Card atualizado com sucesso!",
       });
-
-      fetchTopicCards();
     } catch (error) {
       console.error("Error updating topic card:", error);
       toast({
@@ -642,13 +655,23 @@ const AdminSiteSettings = () => {
                     <div key={card.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold">Card {index + 1}</h3>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteTopicCard(card.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          {card.isDirty && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveTopicCard(card)}
+                            >
+                              Salvar
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteTopicCard(card.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -656,7 +679,7 @@ const AdminSiteSettings = () => {
                           <Input
                             value={card.title}
                             onChange={(e) =>
-                              handleUpdateTopicCard(card.id, { title: e.target.value })
+                              updateLocalTopicCard(card.id, { title: e.target.value })
                             }
                           />
                         </div>
@@ -665,7 +688,7 @@ const AdminSiteSettings = () => {
                           <Select
                             value={card.icon}
                             onValueChange={(value) =>
-                              handleUpdateTopicCard(card.id, { icon: value })
+                              updateLocalTopicCard(card.id, { icon: value })
                             }
                           >
                             <SelectTrigger>
@@ -685,7 +708,7 @@ const AdminSiteSettings = () => {
                           <Input
                             value={card.color}
                             onChange={(e) =>
-                              handleUpdateTopicCard(card.id, { color: e.target.value })
+                              updateLocalTopicCard(card.id, { color: e.target.value })
                             }
                             placeholder="orange, blue, green, etc"
                           />
@@ -695,7 +718,7 @@ const AdminSiteSettings = () => {
                           <Input
                             value={card.link_url}
                             onChange={(e) =>
-                              handleUpdateTopicCard(card.id, { link_url: e.target.value })
+                              updateLocalTopicCard(card.id, { link_url: e.target.value })
                             }
                             placeholder="/courses, /faq, etc"
                           />
@@ -705,7 +728,7 @@ const AdminSiteSettings = () => {
                           <Textarea
                             value={card.description || ""}
                             onChange={(e) =>
-                              handleUpdateTopicCard(card.id, { description: e.target.value })
+                              updateLocalTopicCard(card.id, { description: e.target.value })
                             }
                             rows={2}
                           />
@@ -716,7 +739,7 @@ const AdminSiteSettings = () => {
                             type="number"
                             value={card.order_index}
                             onChange={(e) =>
-                              handleUpdateTopicCard(card.id, {
+                              updateLocalTopicCard(card.id, {
                                 order_index: parseInt(e.target.value),
                               })
                             }
