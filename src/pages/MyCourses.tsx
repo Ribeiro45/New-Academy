@@ -145,6 +145,13 @@ const MyCourses = () => {
   };
 
   const handleUnenroll = async (courseId: string, courseTitle: string) => {
+    // Check if course is completed (100% progress)
+    const stats = getCourseStats(courseId);
+    if (stats.progress >= 100) {
+      toast.error("Não é possível cancelar inscrição de um curso já finalizado");
+      return;
+    }
+
     if (!confirm(`Tem certeza que deseja cancelar sua inscrição em "${courseTitle}"?`)) {
       return;
     }
@@ -212,14 +219,16 @@ const MyCourses = () => {
                       completedLessons={stats.completedLessons}
                       totalDuration={stats.totalDuration}
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleUnenroll(course.id, course.title)}
-                    >
-                      Cancelar Inscrição
-                    </Button>
+                    {stats.progress < 100 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleUnenroll(course.id, course.title)}
+                      >
+                        Cancelar Inscrição
+                      </Button>
+                    )}
                   </div>
                 );
               })}

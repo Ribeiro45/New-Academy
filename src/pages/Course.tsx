@@ -180,26 +180,55 @@ const Course = () => {
 
           setModules(modulesWithLessons);
 
-          // Set first lesson as current
-          const firstModule = modulesWithLessons[0];
-          if (firstModule?.lessons.length > 0) {
-            setCurrentLesson(firstModule.lessons[0]);
+          // Get completed lesson IDs from progress
+          const completedLessonIds = new Set(
+            progressRes.data?.filter(p => p.completed).map(p => p.lesson_id) || []
+          );
+
+          // Find the first uncompleted lesson to resume from
+          let resumeLesson: Lesson | null = null;
+          for (const module of modulesWithLessons) {
+            for (const lesson of module.lessons) {
+              if (!completedLessonIds.has(lesson.id)) {
+                resumeLesson = lesson;
+                break;
+              }
+            }
+            if (resumeLesson) break;
+          }
+
+          // If all lessons completed, show the last lesson; otherwise show first uncompleted
+          if (resumeLesson) {
+            setCurrentLesson(resumeLesson);
+          } else if (modulesWithLessons[0]?.lessons.length > 0) {
+            // All completed - show last lesson of last module
+            const lastModule = modulesWithLessons[modulesWithLessons.length - 1];
+            setCurrentLesson(lastModule.lessons[lastModule.lessons.length - 1]);
           }
         } else {
           // Fallback: Create a default module with all lessons if no modules exist
+          const allLessons = lessonsRes.data.sort((a, b) => a.order_index - b.order_index);
           const defaultModule = {
             id: 'default',
             title: 'Aulas',
             description: '',
             order_index: 0,
-            lessons: lessonsRes.data.sort((a, b) => a.order_index - b.order_index),
+            lessons: allLessons,
             hasQuiz: false,
           };
           
           setModules([defaultModule]);
           
-          if (lessonsRes.data.length > 0) {
-            setCurrentLesson(lessonsRes.data[0]);
+          // Find first uncompleted lesson
+          const completedLessonIds = new Set(
+            progressRes.data?.filter(p => p.completed).map(p => p.lesson_id) || []
+          );
+          const resumeLesson = allLessons.find(l => !completedLessonIds.has(l.id));
+          
+          if (resumeLesson) {
+            setCurrentLesson(resumeLesson);
+          } else if (allLessons.length > 0) {
+            setCurrentLesson(allLessons[allLessons.length - 1]);
           }
         }
       }
