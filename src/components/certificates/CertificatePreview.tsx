@@ -19,6 +19,7 @@ interface CertificatePreviewProps {
   certificateNumber: string;
   issuedAt: string;
   totalHours: number;
+  totalMinutes?: number;
 }
 
 export const CertificatePreview = ({
@@ -30,6 +31,7 @@ export const CertificatePreview = ({
   certificateNumber,
   issuedAt,
   totalHours,
+  totalMinutes,
 }: CertificatePreviewProps) => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
 
@@ -42,6 +44,7 @@ export const CertificatePreview = ({
         certificateNumber,
         issuedAt,
         totalHours,
+        totalMinutes,
       }).then((url) => {
         if (url) setPreviewUrl(url);
       });
@@ -52,7 +55,7 @@ export const CertificatePreview = ({
         URL.revokeObjectURL(previewUrl);
       }
     };
-  }, [open, courseTitle, studentName, studentCPF, certificateNumber, issuedAt, totalHours]);
+  }, [open, courseTitle, studentName, studentCPF, certificateNumber, issuedAt, totalHours, totalMinutes]);
 
   const handleDownload = () => {
     if (previewUrl) {

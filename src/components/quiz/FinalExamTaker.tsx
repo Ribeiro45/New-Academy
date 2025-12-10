@@ -24,6 +24,7 @@ export const FinalExamTaker = ({ courseId, courseTitle, onComplete }: FinalExamT
   const [certificate, setCertificate] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [totalHours, setTotalHours] = useState(0);
+  const [totalMinutes, setTotalMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [attemptCount, setAttemptCount] = useState(0);
   const [maxAttemptsReached, setMaxAttemptsReached] = useState(false);
@@ -111,14 +112,15 @@ export const FinalExamTaker = ({ courseId, courseTitle, onComplete }: FinalExamT
       setMaxAttemptsReached(true);
     }
 
-    // Calculate total hours
+    // Calculate total hours and minutes
     const { data: lessonsData } = await supabase
       .from('lessons')
       .select('duration_minutes')
       .eq('course_id', courseId);
 
-    const total = lessonsData?.reduce((sum, l) => sum + (l.duration_minutes || 0), 0) || 0;
-    setTotalHours(Math.round(total / 60));
+    const totalMins = lessonsData?.reduce((sum, l) => sum + (l.duration_minutes || 0), 0) || 0;
+    setTotalHours(Math.floor(totalMins / 60));
+    setTotalMinutes(totalMins % 60);
 
     setLoading(false);
   };
@@ -229,6 +231,7 @@ export const FinalExamTaker = ({ courseId, courseTitle, onComplete }: FinalExamT
       certificateNumber: certificate.certificate_number,
       issuedAt: certificate.issued_at,
       totalHours,
+      totalMinutes,
     });
     toast.success("Download do certificado iniciado!");
   };

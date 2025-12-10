@@ -9,7 +9,27 @@ interface CertificateDownloadProps {
   certificateNumber: string;
   issuedAt: string;
   totalHours: number;
+  totalMinutes?: number;
 }
+
+const formatDuration = (hours: number, minutes?: number): string => {
+  const parts: string[] = [];
+  
+  if (hours > 0) {
+    parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+  }
+  
+  const mins = minutes || 0;
+  if (mins > 0) {
+    parts.push(`${mins} ${mins === 1 ? 'minuto' : 'minutos'}`);
+  }
+  
+  if (parts.length === 0) {
+    return '0 horas';
+  }
+  
+  return parts.join(' e ');
+};
 
 const drawCertificate = (
   ctx: CanvasRenderingContext2D,
@@ -22,6 +42,7 @@ const drawCertificate = (
     certificateNumber,
     issuedAt,
     totalHours,
+    totalMinutes,
   }: CertificateDownloadProps
 ) => {
   // Navy blue background
@@ -102,10 +123,11 @@ const drawCertificate = (
   }
   ctx.fillText(line.trim(), canvas.width / 2, y);
 
-  // Total hours
+  // Total hours - formatted with proper singular/plural
+  const durationText = formatDuration(totalHours, totalMinutes);
   ctx.font = '17px Arial';
   ctx.fillStyle = '#666';
-  ctx.fillText(`Carga horária: ${totalHours} horas`, canvas.width / 2, y + 50);
+  ctx.fillText(`Carga horária: ${durationText}`, canvas.width / 2, y + 50);
 
   // Date
   ctx.font = '17px Arial';

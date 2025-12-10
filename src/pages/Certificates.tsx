@@ -16,6 +16,7 @@ interface Certificate {
   course: {
     title: string;
     total_hours: number;
+    total_minutes: number;
   };
 }
 
@@ -94,15 +95,19 @@ const Certificates = () => {
           courseHours[lesson.course_id] += lesson.duration_minutes || 0;
         });
 
-        const formattedCerts = certificatesRes.data.map(cert => ({
-          id: cert.id,
-          certificate_number: cert.certificate_number,
-          issued_at: cert.issued_at,
-          course: {
-            title: (cert.courses as any)?.title || "Curso sem título",
-            total_hours: Math.round((courseHours[cert.course_id] || 0) / 60)
-          }
-        }));
+        const formattedCerts = certificatesRes.data.map(cert => {
+          const totalMins = courseHours[cert.course_id] || 0;
+          return {
+            id: cert.id,
+            certificate_number: cert.certificate_number,
+            issued_at: cert.issued_at,
+            course: {
+              title: (cert.courses as any)?.title || "Curso sem título",
+              total_hours: Math.floor(totalMins / 60),
+              total_minutes: totalMins % 60
+            }
+          };
+        });
         setCertificates(formattedCerts);
       }
       
@@ -187,6 +192,7 @@ const Certificates = () => {
             certificateNumber={selectedCertificate.certificate_number}
             issuedAt={selectedCertificate.issued_at}
             totalHours={selectedCertificate.course.total_hours}
+            totalMinutes={selectedCertificate.course.total_minutes}
           />
         )}
       </main>
