@@ -300,7 +300,9 @@ const Course = () => {
     ? (completedLessons.size / lessons.length) * 100 
     : 0;
 
-  const totalHours = Math.round(lessons.reduce((acc, l) => acc + (l.duration_minutes || 0), 0) / 60) || 1;
+  const totalMins = lessons.reduce((acc, l) => acc + (l.duration_minutes || 0), 0);
+  const totalHours = Math.floor(totalMins / 60);
+  const totalMinutes = totalMins % 60;
 
   const generateCertificate = async () => {
     if (!user || !course || !id) return;
@@ -450,6 +452,7 @@ const Course = () => {
                 certificateNumber={certificateData.certificate_number}
                 issuedAt={certificateData.issued_at}
                 totalHours={totalHours}
+                totalMinutes={totalMinutes}
               />
             )}
           </div>
