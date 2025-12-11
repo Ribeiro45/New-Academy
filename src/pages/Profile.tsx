@@ -167,7 +167,6 @@ const Profile = () => {
         .from("profiles")
         .update({
           full_name: data.full_name,
-          email: data.email,
           phone: data.phone || null,
           birth_date: data.birth_date || null,
         })
@@ -305,8 +304,15 @@ const Profile = () => {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="seu@email.com" {...field} />
+                          <Input 
+                            type="email" 
+                            placeholder="seu@email.com" 
+                            {...field} 
+                            disabled 
+                            className="bg-muted cursor-not-allowed"
+                          />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">O email não pode ser alterado</p>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -3,9 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Loader2, ChevronLeft, ChevronRight, X, Search, FileText, Folder } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Search, FileText, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -28,6 +27,15 @@ interface FAQ {
   is_section: boolean;
 }
 
+interface FaqSectionAccess {
+  faq_section_id: string;
+  group_id: string;
+}
+
+interface GroupMember {
+  group_id: string;
+}
+
 export default function FAQ() {
   const [searchParams] = useSearchParams();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
@@ -37,18 +45,23 @@ export default function FAQ() {
   const [pageNumbers, setPageNumbers] = useState<{ [key: string]: number }>({});
   const [selectedFaq, setSelectedFaq] = useState<FAQ | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [allowedSections, setAllowedSections] = useState<string[]>([]);
+  const [hasGroupMembership, setHasGroupMembership] = useState(false);
   
   const selectedSection = searchParams.get('section');
 
   useEffect(() => {
-    loadUserType();
-    loadFAQs();
+    loadUserData();
   }, []);
 
-  const loadUserType = async () => {
+  const loadUserData = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (user) {
+        // Load user profile and type
         const { data: profile } = await supabase
           .from('profiles')
           .select('user_type')
@@ -58,15 +71,40 @@ export default function FAQ() {
         if (profile) {
           setUserType(profile.user_type || 'colaborador');
         }
+
+        // Load user's group memberships
+        const { data: memberships } = await supabase
+          .from('group_members')
+          .select('group_id')
+          .eq('user_id', user.id);
+
+        const groupIds = memberships?.map(m => m.group_id) || [];
+        setUserGroups(groupIds);
+        setHasGroupMembership(groupIds.length > 0);
+
+        // If user has groups, load allowed sections
+        if (groupIds.length > 0) {
+          const { data: sectionAccess } = await supabase
+            .from('faq_section_access')
+            .select('faq_section_id')
+            .in('group_id', groupIds);
+
+          const allowedSectionIds = sectionAccess?.map(a => a.faq_section_id) || [];
+          setAllowedSections(allowedSectionIds);
+        }
       }
+
+      // Load FAQs
+      await loadFAQs();
     } catch (error) {
-      console.error('Error loading user type:', error);
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadFAQs = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('faqs' as any)
         .select('*')
@@ -86,8 +124,6 @@ export default function FAQ() {
     } catch (error) {
       console.error('Error loading FAQs:', error);
       toast.error('Erro ao carregar FAQs');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -102,12 +138,50 @@ export default function FAQ() {
     }));
   };
 
+  // Check if a section is allowed for the user
+  const isSectionAllowed = (sectionId: string): boolean => {
+    // If user has no group membership, show all sections
+    if (!hasGroupMembership) return true;
+    // If user has groups, check if section is in allowed list
+    return allowedSections.includes(sectionId);
+  };
+
+  // Get the root section ID for an item
+  const getRootSectionId = (item: FAQ): string | null => {
+    if (!item.parent_id) return item.is_section ? item.id : null;
+    
+    let currentParentId = item.parent_id;
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loops
+    
+    while (currentParentId && iterations < maxIterations) {
+      const parent = faqs.find(f => f.id === currentParentId);
+      if (!parent) return currentParentId;
+      if (!parent.parent_id) return parent.id;
+      currentParentId = parent.parent_id;
+      iterations++;
+    }
+    
+    return currentParentId;
+  };
+
+  // Filter FAQs based on audience, search, and group access
   const filteredFAQs = faqs.filter(faq => {
     const matchesAudience = faq.target_audience === userType || faq.target_audience === 'ambos';
     const matchesSearch = searchQuery === '' || 
       faq.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (faq.description && faq.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesAudience && matchesSearch;
+    
+    // Check group access
+    let hasGroupAccess = true;
+    if (hasGroupMembership) {
+      const rootSectionId = getRootSectionId(faq);
+      if (rootSectionId) {
+        hasGroupAccess = isSectionAllowed(rootSectionId);
+      }
+    }
+    
+    return matchesAudience && matchesSearch && hasGroupAccess;
   });
 
   // Get recent documents (items with PDF) - 10 most recent

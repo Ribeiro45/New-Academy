@@ -207,6 +207,42 @@ export type Database = {
         }
         Relationships: []
       }
+      faq_section_access: {
+        Row: {
+          created_at: string | null
+          faq_section_id: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          faq_section_id: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          faq_section_id?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faq_section_access_faq_section_id_fkey"
+            columns: ["faq_section_id"]
+            isOneToOne: false
+            referencedRelation: "faqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faq_section_access_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faqs: {
         Row: {
           created_at: string | null
