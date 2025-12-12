@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -85,7 +85,6 @@ const Course = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { logView } = useViewLogger();
-  const hasLoggedView = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [course, setCourse] = useState<CourseData | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -146,11 +145,8 @@ const Course = () => {
 
       if (courseRes.data) {
         setCourse(courseRes.data);
-        // Log view only once per session
-        if (!hasLoggedView.current) {
-          logView('courses', id!, courseRes.data.title);
-          hasLoggedView.current = true;
-        }
+        // Log view every time the course is accessed
+        logView('courses', id!, courseRes.data.title);
       }
       if (certificateRes.data) {
         setHasCertificate(true);
