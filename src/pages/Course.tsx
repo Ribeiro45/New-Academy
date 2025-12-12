@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
 import { CertificatePreview } from "@/components/certificates/CertificatePreview";
+import { useViewLogger } from "@/hooks/useViewLogger";
 
 interface Lesson {
   id: string;
@@ -83,6 +84,8 @@ const formatDuration = (duration: string): string => {
 const Course = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { logView } = useViewLogger();
+  const hasLoggedView = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [course, setCourse] = useState<CourseData | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -141,7 +144,14 @@ const Course = () => {
         ? await supabase.from("user_progress").select("*").eq("user_id", user?.id).in("lesson_id", lessonIds)
         : { data: [] };
 
-      if (courseRes.data) setCourse(courseRes.data);
+      if (courseRes.data) {
+        setCourse(courseRes.data);
+        // Log view only once per session
+        if (!hasLoggedView.current) {
+          logView('courses', id!, courseRes.data.title);
+          hasLoggedView.current = true;
+        }
+      }
       if (certificateRes.data) {
         setHasCertificate(true);
         setCertificateData(certificateRes.data);

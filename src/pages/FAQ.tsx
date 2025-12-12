@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useViewLogger } from '@/hooks/useViewLogger';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -38,6 +41,7 @@ interface GroupMember {
 
 export default function FAQ() {
   const [searchParams] = useSearchParams();
+  const { logView } = useViewLogger();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<string>('colaborador');
@@ -136,6 +140,12 @@ export default function FAQ() {
       ...prev,
       [faqId]: (prev[faqId] || 1) + offset
     }));
+  };
+
+  const handleSelectFaq = (faq: FAQ) => {
+    setSelectedFaq(faq);
+    // Log document view
+    logView('faqs', faq.id, faq.title);
   };
 
   // Check if a section is allowed for the user
@@ -295,7 +305,7 @@ export default function FAQ() {
                         <Card
                           key={item.id}
                           className="group cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-card border-border/50 overflow-hidden"
-                          onClick={() => setSelectedFaq(item)}
+                          onClick={() => handleSelectFaq(item)}
                         >
                           {item.pdf_url && (
                             <div className="w-full h-40 bg-muted/50 border-b border-border/50 flex items-center justify-center overflow-hidden">
@@ -346,7 +356,7 @@ export default function FAQ() {
                       <Card
                         key={doc.id}
                         className="group cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-card border-border/50 overflow-hidden"
-                        onClick={() => setSelectedFaq(doc)}
+                        onClick={() => handleSelectFaq(doc)}
                       >
                         {doc.pdf_url && (
                           <div className="w-full h-40 bg-muted/50 border-b border-border/50 flex items-center justify-center overflow-hidden">

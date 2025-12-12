@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, RefreshCw, Eye, Filter, Calendar, Database } from 'lucide-react';
+import { Search, RefreshCw, Eye, Filter, Calendar, Database, Trash2, AlertTriangle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface ActivityLog {
   id: string;
@@ -43,17 +45,20 @@ const ACTION_COLORS: Record<string, string> = {
   INSERT: 'bg-green-500/10 text-green-600 border-green-500/20',
   UPDATE: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   DELETE: 'bg-red-500/10 text-red-600 border-red-500/20',
+  VIEW: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
 const ACTION_LABELS: Record<string, string> = {
   INSERT: 'Criação',
   UPDATE: 'Alteração',
   DELETE: 'Exclusão',
+  VIEW: 'Visualização',
 };
 
 export default function AdminLogs() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTable, setFilterTable] = useState<string>('all');
   const [filterAction, setFilterAction] = useState<string>('all');
@@ -103,6 +108,29 @@ export default function AdminLogs() {
       console.error('Erro ao carregar logs:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const clearOldLogs = async () => {
+    setDeleting(true);
+    try {
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      
+      const { error } = await supabase
+        .from('activity_logs')
+        .delete()
+        .lt('created_at', tenDaysAgo.toISOString());
+
+      if (error) throw error;
+      
+      toast.success('Logs antigos removidos com sucesso!');
+      await loadLogs();
+    } catch (error) {
+      console.error('Erro ao limpar logs:', error);
+      toast.error('Erro ao limpar logs antigos');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -182,10 +210,38 @@ export default function AdminLogs() {
             Histórico de todas as alterações realizadas no sistema
           </p>
         </div>
-        <Button onClick={loadLogs} disabled={loading} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
+        <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={deleting}>
+                <Trash2 className={`w-4 h-4 mr-2 ${deleting ? 'animate-spin' : ''}`} />
+                Limpar logs (+10 dias)
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  Limpar Logs Antigos
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação irá remover permanentemente todos os logs com mais de 10 dias.
+                  Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={clearOldLogs} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Confirmar Exclusão
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button onClick={loadLogs} disabled={loading} variant="outline">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -225,10 +281,11 @@ export default function AdminLogs() {
                 <SelectValue placeholder="Ação" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as ações</SelectItem>
+              <SelectItem value="all">Todas as ações</SelectItem>
                 <SelectItem value="INSERT">Criação</SelectItem>
                 <SelectItem value="UPDATE">Alteração</SelectItem>
                 <SelectItem value="DELETE">Exclusão</SelectItem>
+                <SelectItem value="VIEW">Visualização</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -236,7 +293,7 @@ export default function AdminLogs() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-foreground">{logs.length}</div>
@@ -265,6 +322,14 @@ export default function AdminLogs() {
               {logs.filter(l => l.action === 'DELETE').length}
             </div>
             <p className="text-sm text-muted-foreground">Exclusões</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-purple-600">
+              {logs.filter(l => l.action === 'VIEW').length}
+            </div>
+            <p className="text-sm text-muted-foreground">Visualizações</p>
           </CardContent>
         </Card>
       </div>
