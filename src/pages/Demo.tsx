@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, PlayCircle, BookOpen, Award, TrendingUp } from "lucide-react";
+import { VideoPlayer } from "@/components/course/VideoPlayer";
 
 const Demo = () => {
   const navigate = useNavigate();
@@ -119,15 +120,7 @@ const Demo = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
-                <iframe
-                  className="w-full h-full"
-                  src={settings.video_url}
-                  title={settings.video_title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
+              <VideoPlayer youtubeUrl={settings.video_url} title={settings.video_title} />
               <p className="text-sm text-muted-foreground mt-4">
                 Assista ao vídeo completo para entender todos os recursos da plataforma
               </p>
