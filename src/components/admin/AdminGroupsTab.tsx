@@ -375,16 +375,16 @@ export function AdminGroupsTab() {
               <div>
                 <Label htmlFor="leader">Líder do Grupo (opcional)</Label>
                 <Select
-                  value={formData.leader_id}
+                  value={formData.leader_id || "none"}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, leader_id: value })
+                    setFormData({ ...formData, leader_id: value === "none" ? "" : value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um líder (opcional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem líder</SelectItem>
+                    <SelectItem value="none">Sem líder</SelectItem>
                     {users.filter(u => u.id).map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || user.email}
