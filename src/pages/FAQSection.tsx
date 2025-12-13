@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useViewLogger } from '@/hooks/useViewLogger';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -29,6 +30,7 @@ interface FAQ {
 
 export default function FAQSection() {
   const { sectionId } = useParams<{ sectionId: string }>();
+  const { logView } = useViewLogger();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<string>('colaborador');
@@ -235,7 +237,10 @@ export default function FAQSection() {
                     <Card
                       key={item.id}
                       className="group cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-card border-border/50 overflow-hidden"
-                      onClick={() => setSelectedFaq(item)}
+                      onClick={() => {
+                        logView('faqs', item.id, item.title);
+                        setSelectedFaq(item);
+                      }}
                     >
                       {item.pdf_url && (
                         <div className="w-full h-40 bg-muted/50 border-b border-border/50 flex items-center justify-center overflow-hidden">

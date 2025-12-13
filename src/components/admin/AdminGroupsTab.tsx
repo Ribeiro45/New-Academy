@@ -169,28 +169,21 @@ export function AdminGroupsTab() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.leader_id) {
-      toast({
-        title: 'Erro',
-        description: 'É necessário selecionar um líder para o grupo.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
       if (selectedGroup) {
         const { error } = await supabase
           .from('groups')
           .update({
             name: formData.name,
-            leader_id: formData.leader_id,
+            leader_id: formData.leader_id || null,
           })
           .eq('id', selectedGroup.id);
 
         if (error) throw error;
 
-        await updateLeaderRole(formData.leader_id);
+        if (formData.leader_id) {
+          await updateLeaderRole(formData.leader_id);
+        }
 
         toast({
           title: 'Grupo atualizado',
@@ -199,12 +192,14 @@ export function AdminGroupsTab() {
       } else {
         const { error } = await supabase.from('groups').insert({
           name: formData.name,
-          leader_id: formData.leader_id,
+          leader_id: formData.leader_id || null,
         });
 
         if (error) throw error;
 
-        await updateLeaderRole(formData.leader_id);
+        if (formData.leader_id) {
+          await updateLeaderRole(formData.leader_id);
+        }
 
         toast({
           title: 'Grupo criado',
@@ -378,18 +373,18 @@ export function AdminGroupsTab() {
                 />
               </div>
               <div>
-                <Label htmlFor="leader">Líder do Grupo</Label>
+                <Label htmlFor="leader">Líder do Grupo (opcional)</Label>
                 <Select
                   value={formData.leader_id}
                   onValueChange={(value) =>
                     setFormData({ ...formData, leader_id: value })
                   }
-                  required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um líder *" />
+                    <SelectValue placeholder="Selecione um líder (opcional)" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Sem líder</SelectItem>
                     {users.filter(u => u.id).map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || user.email}

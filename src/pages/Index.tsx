@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Award, TrendingUp, Users, ChevronRight, Play, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { VideoPlayer } from "@/components/course/VideoPlayer";
 import logoN from "@/assets/logo-n.png";
 import logoNWhite from "@/assets/logo-n-white.png";
 const Index = () => {
@@ -140,10 +141,7 @@ const Index = () => {
             <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-2xl"></div>
             <Card className="relative border-2 border-border/50 backdrop-blur-sm bg-card/50 overflow-hidden">
               <CardContent className="p-0">
-                <div className="aspect-video relative group">
-                  <iframe className="w-full h-full rounded-lg" src={settings.hero.video_url} title="Vídeo Demonstração" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
-                </div>
+                <VideoPlayer youtubeUrl={settings.hero.video_url} title="Vídeo Demonstração" />
                 <div className="p-6 space-y-2">
                   <h3 className="text-xl font-semibold">Veja como funciona</h3>
                   <p className="text-muted-foreground">
