@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Loader2, ChevronLeft, ChevronRight, FileText, Folder, ArrowLeft, MessageSquarePlus, User, Send } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, FileText, Folder, ArrowLeft, MessageSquarePlus, User, Send, Pencil, Trash2, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -57,6 +57,8 @@ export default function FAQSection() {
   const [submittingNote, setSubmittingNote] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
 
   useEffect(() => {
     loadUserType();
@@ -154,6 +156,49 @@ export default function FAQSection() {
       toast.error('Erro ao adicionar nota');
     } finally {
       setSubmittingNote(false);
+    }
+  };
+
+  const handleEditNote = async (noteId: string) => {
+    if (!editingNoteText.trim() || !selectedFaq) {
+      toast.error('A nota não pode estar vazia');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('faq_notes')
+        .update({ note: editingNoteText.trim() })
+        .eq('id', noteId);
+
+      if (error) throw error;
+
+      toast.success('Nota atualizada!');
+      setEditingNoteId(null);
+      setEditingNoteText('');
+      loadNotes(selectedFaq.id);
+    } catch (error) {
+      console.error('Error updating note:', error);
+      toast.error('Erro ao atualizar nota');
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!selectedFaq) return;
+
+    try {
+      const { error } = await supabase
+        .from('faq_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+
+      toast.success('Nota excluída!');
+      loadNotes(selectedFaq.id);
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      toast.error('Erro ao excluir nota');
     }
   };
 
@@ -519,10 +564,70 @@ export default function FAQSection() {
                                   {format(new Date(note.created_at), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
                                 </p>
                               </div>
+                              {/* Edit/Delete buttons for own notes */}
+                              {currentUser && currentUser.id === note.user_id && (
+                                <div className="flex items-center gap-1">
+                                  {editingNoteId === note.id ? (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                        onClick={() => handleEditNote(note.id)}
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                        onClick={() => {
+                                          setEditingNoteId(null);
+                                          setEditingNoteText('');
+                                        }}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                        onClick={() => {
+                                          setEditingNoteId(note.id);
+                                          setEditingNoteText(note.note);
+                                        }}
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        onClick={() => handleDeleteNote(note.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            <p className="text-sm text-foreground whitespace-pre-wrap">
-                              {note.note}
-                            </p>
+                            {editingNoteId === note.id ? (
+                              <Textarea
+                                value={editingNoteText}
+                                onChange={(e) => setEditingNoteText(e.target.value)}
+                                rows={3}
+                                className="resize-none text-sm"
+                                autoFocus
+                              />
+                            ) : (
+                              <p className="text-sm text-foreground whitespace-pre-wrap">
+                                {note.note}
+                              </p>
+                            )}
                           </CardContent>
                         </Card>
                       ))
