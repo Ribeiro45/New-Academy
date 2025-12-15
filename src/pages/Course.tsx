@@ -289,12 +289,29 @@ const Course = () => {
       
       // Check if course is complete and issue certificate
       const newCompletedCount = completedLessons.size + 1;
-      if (newCompletedCount === lessons.length && user?.id && id) {
-        await supabase.rpc('check_and_issue_certificate', {
-          p_user_id: user.id,
-          p_course_id: id
-        });
-        setHasCertificate(true);
+      if (newCompletedCount === lessons.length && user?.id && id && !hasCertificate) {
+        try {
+          await supabase.rpc('check_and_issue_certificate', {
+            p_user_id: user.id,
+            p_course_id: id
+          });
+          
+          // Fetch the newly created certificate
+          const { data: newCert } = await supabase
+            .from("certificates")
+            .select("certificate_number, issued_at")
+            .eq("user_id", user.id)
+            .eq("course_id", id)
+            .maybeSingle();
+          
+          if (newCert) {
+            setHasCertificate(true);
+            setCertificateData(newCert);
+            toast.success("🎉 Parabéns! Seu certificado está pronto!");
+          }
+        } catch (certError) {
+          console.error("Error issuing certificate:", certError);
+        }
       }
     } catch (error) {
       console.error("Error updating progress:", error);
