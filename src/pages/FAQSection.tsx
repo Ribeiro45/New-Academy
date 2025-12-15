@@ -4,12 +4,16 @@ import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Loader2, ChevronLeft, ChevronRight, FileText, Folder, ArrowLeft } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, FileText, Folder, ArrowLeft, MessageSquarePlus, User, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useViewLogger } from '@/hooks/useViewLogger';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -28,6 +32,16 @@ interface FAQ {
   created_at: string | null;
 }
 
+interface FAQNote {
+  id: string;
+  faq_id: string;
+  user_id: string;
+  note: string;
+  created_at: string;
+  user_name?: string;
+  user_email?: string;
+}
+
 export default function FAQSection() {
   const { sectionId } = useParams<{ sectionId: string }>();
   const { logView } = useViewLogger();
@@ -38,11 +52,22 @@ export default function FAQSection() {
   const [pageNumbers, setPageNumbers] = useState<{ [key: string]: number }>({});
   const [selectedFaq, setSelectedFaq] = useState<FAQ | null>(null);
   const [sectionData, setSectionData] = useState<FAQ | null>(null);
+  const [notes, setNotes] = useState<FAQNote[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     loadUserType();
     loadFAQs();
   }, [sectionId]);
+
+  useEffect(() => {
+    if (selectedFaq) {
+      loadNotes(selectedFaq.id);
+    }
+  }, [selectedFaq]);
 
   const loadUserType = async () => {
     try {
@@ -50,16 +75,85 @@ export default function FAQSection() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('user_type')
+          .select('user_type, full_name, email')
           .eq('id', user.id)
           .single();
         
         if (profile) {
           setUserType(profile.user_type || 'colaborador');
+          setCurrentUser({
+            id: user.id,
+            name: profile.full_name || '',
+            email: profile.email || user.email || ''
+          });
         }
       }
     } catch (error) {
       console.error('Error loading user type:', error);
+    }
+  };
+
+  const loadNotes = async (faqId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('faq_notes')
+        .select('*')
+        .eq('faq_id', faqId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch user names for each note
+      const notesWithUsers: FAQNote[] = [];
+      for (const note of data || []) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', note.user_id)
+          .single();
+        
+        notesWithUsers.push({
+          ...note,
+          user_name: profile?.full_name || 'Usuário',
+          user_email: profile?.email || ''
+        });
+      }
+      
+      setNotes(notesWithUsers);
+    } catch (error) {
+      console.error('Error loading notes:', error);
+    }
+  };
+
+  const handleSubmitNote = async () => {
+    if (!newNote.trim() || !selectedFaq || !currentUser) {
+      toast.error('Por favor, escreva uma nota');
+      return;
+    }
+
+    setSubmittingNote(true);
+    try {
+      const { error } = await supabase
+        .from('faq_notes')
+        .insert({
+          faq_id: selectedFaq.id,
+          user_id: currentUser.id,
+          note: newNote.trim()
+        });
+
+      if (error) throw error;
+
+      // Log the action
+      logView('faq_notes', selectedFaq.id, `Nota adicionada: ${selectedFaq.title}`);
+
+      toast.success('Nota adicionada com sucesso!');
+      setNewNote('');
+      loadNotes(selectedFaq.id);
+    } catch (error) {
+      console.error('Error submitting note:', error);
+      toast.error('Erro ao adicionar nota');
+    } finally {
+      setSubmittingNote(false);
     }
   };
 
@@ -283,7 +377,7 @@ export default function FAQSection() {
       </div>
 
       {/* Fullscreen Dialog */}
-      <Dialog open={!!selectedFaq} onOpenChange={() => setSelectedFaq(null)}>
+      <Dialog open={!!selectedFaq} onOpenChange={() => { setSelectedFaq(null); setShowNotes(false); }}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh] p-0 bg-card border-border">
           <DialogHeader className="p-6 pb-4 border-b border-border/50">
             <div className="flex items-start justify-between gap-4">
@@ -293,61 +387,148 @@ export default function FAQSection() {
                   <p className="text-muted-foreground mt-2 text-sm">{selectedFaq.description}</p>
                 )}
               </div>
+              <Button
+                variant={showNotes ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowNotes(!showNotes)}
+                className="gap-2 shrink-0"
+              >
+                <MessageSquarePlus className="w-4 h-4" />
+                Notas ({notes.length})
+              </Button>
             </div>
           </DialogHeader>
           
-          <div className="flex-1 overflow-auto p-6 bg-muted/30">
-            {selectedFaq?.pdf_url && (
-              <div className="space-y-6">
-                <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
-                  <Document
-                    file={selectedFaq.pdf_url}
-                    onLoadSuccess={(pdf) => onDocumentLoadSuccess(selectedFaq.id, pdf)}
-                    loading={
-                      <div className="flex items-center justify-center p-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      </div>
-                    }
-                  >
-                    <Page
-                      pageNumber={pageNumbers[selectedFaq.id] || 1}
-                      renderTextLayer={true}
-                      renderAnnotationLayer={true}
-                      className="mx-auto"
-                      width={Math.min(window.innerWidth * 0.85, 1200)}
-                    />
-                  </Document>
+          <div className="flex-1 overflow-hidden flex">
+            {/* PDF Content */}
+            <div className={`flex-1 overflow-auto p-6 bg-muted/30 transition-all ${showNotes ? 'w-2/3' : 'w-full'}`}>
+              {selectedFaq?.pdf_url && (
+                <div className="space-y-6">
+                  <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
+                    <Document
+                      file={selectedFaq.pdf_url}
+                      onLoadSuccess={(pdf) => onDocumentLoadSuccess(selectedFaq.id, pdf)}
+                      loading={
+                        <div className="flex items-center justify-center p-12">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        </div>
+                      }
+                    >
+                      <Page
+                        pageNumber={pageNumbers[selectedFaq.id] || 1}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                        className="mx-auto"
+                        width={Math.min(window.innerWidth * (showNotes ? 0.55 : 0.85), showNotes ? 800 : 1200)}
+                      />
+                    </Document>
+                  </div>
+                  
+                  {numPages[selectedFaq.id] && numPages[selectedFaq.id] > 1 && (
+                    <div className="flex items-center justify-center gap-4 pb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => changePage(selectedFaq.id, -1)}
+                        disabled={(pageNumbers[selectedFaq.id] || 1) <= 1}
+                        className="gap-2"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Anterior
+                      </Button>
+                      
+                      <span className="text-sm font-medium px-4 py-2 bg-card rounded-lg border border-border/50">
+                        Página {pageNumbers[selectedFaq.id] || 1} de {numPages[selectedFaq.id]}
+                      </span>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => changePage(selectedFaq.id, 1)}
+                        disabled={(pageNumbers[selectedFaq.id] || 1) >= numPages[selectedFaq.id]}
+                        className="gap-2"
+                      >
+                        Próxima
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                
-                {numPages[selectedFaq.id] && numPages[selectedFaq.id] > 1 && (
-                  <div className="flex items-center justify-center gap-4 pb-4">
+              )}
+            </div>
+
+            {/* Notes Panel */}
+            {showNotes && (
+              <div className="w-1/3 border-l border-border/50 flex flex-col bg-background">
+                <div className="p-4 border-b border-border/50">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <MessageSquarePlus className="w-4 h-4 text-primary" />
+                    Notas de Correções e Melhorias
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Adicione sugestões para melhorar este documento
+                  </p>
+                </div>
+
+                {/* Add Note Form */}
+                {currentUser && (
+                  <div className="p-4 border-b border-border/50 space-y-3">
+                    <Textarea
+                      placeholder="Escreva sua nota de correção ou sugestão de melhoria..."
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      rows={3}
+                      className="resize-none"
+                    />
                     <Button
-                      variant="outline"
+                      onClick={handleSubmitNote}
+                      disabled={submittingNote || !newNote.trim()}
+                      className="w-full gap-2"
                       size="sm"
-                      onClick={() => changePage(selectedFaq.id, -1)}
-                      disabled={(pageNumbers[selectedFaq.id] || 1) <= 1}
-                      className="gap-2"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                      Anterior
-                    </Button>
-                    
-                    <span className="text-sm font-medium px-4 py-2 bg-card rounded-lg border border-border/50">
-                      Página {pageNumbers[selectedFaq.id] || 1} de {numPages[selectedFaq.id]}
-                    </span>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => changePage(selectedFaq.id, 1)}
-                      disabled={(pageNumbers[selectedFaq.id] || 1) >= numPages[selectedFaq.id]}
-                      className="gap-2"
-                    >
-                      Próxima
-                      <ChevronRight className="w-4 h-4" />
+                      {submittingNote ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      Enviar Nota
                     </Button>
                   </div>
                 )}
+
+                {/* Notes List */}
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-4">
+                    {notes.length === 0 ? (
+                      <p className="text-center text-muted-foreground text-sm py-8">
+                        Nenhuma nota ainda. Seja o primeiro a contribuir!
+                      </p>
+                    ) : (
+                      notes.map((note) => (
+                        <Card key={note.id} className="border-border/50">
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-2 mb-2">
+                              <div className="p-1.5 rounded-full bg-primary/10">
+                                <User className="w-3 h-3 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">
+                                  {note.user_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(note.created_at), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">
+                              {note.note}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>
