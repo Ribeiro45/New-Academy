@@ -26,14 +26,14 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email }
       });
 
       if (error) throw error;
 
       setSent(true);
-      toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
+      toast.success("Se o email estiver cadastrado, você receberá um link de recuperação.");
     } catch (error: any) {
       console.error("Error sending reset email:", error);
       // Always show success for security (don't reveal if email exists)
