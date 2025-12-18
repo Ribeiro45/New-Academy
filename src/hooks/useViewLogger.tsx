@@ -1,36 +1,51 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export const useViewLogger = () => {
-  const logView = async (
+  const logAction = async (
+    action: 'VIEW' | 'INSERT' | 'UPDATE' | 'DELETE',
     tableName: 'courses' | 'faqs' | 'faq_notes',
     recordId: string,
-    recordTitle: string
+    description: string,
+    oldData?: any,
+    newData?: any
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let description = '';
-      if (tableName === 'courses') {
-        description = `Visualizou o curso: ${recordTitle}`;
-      } else if (tableName === 'faqs') {
-        description = `Visualizou documento: ${recordTitle}`;
-      } else if (tableName === 'faq_notes') {
-        description = recordTitle; // Custom description for notes
-      }
-
       await supabase.from('activity_logs').insert({
         user_id: user.id,
-        action: tableName === 'faq_notes' ? 'INSERT' : 'VIEW',
+        action,
         table_name: tableName,
         record_id: recordId,
         description,
-        new_data: { title: recordTitle, logged_at: new Date().toISOString() }
+        old_data: oldData || null,
+        new_data: newData || { logged_at: new Date().toISOString() }
       });
     } catch (error) {
-      console.error('Error logging view:', error);
+      console.error('Error logging action:', error);
     }
   };
 
-  return { logView };
+  const logView = async (
+    tableName: 'courses' | 'faqs' | 'faq_notes',
+    recordId: string,
+    recordTitle: string
+  ) => {
+    let description = '';
+    let action: 'VIEW' | 'INSERT' = 'VIEW';
+    
+    if (tableName === 'courses') {
+      description = `Visualizou o curso: ${recordTitle}`;
+    } else if (tableName === 'faqs') {
+      description = `Visualizou documento: ${recordTitle}`;
+    } else if (tableName === 'faq_notes') {
+      description = recordTitle;
+      action = 'INSERT';
+    }
+
+    await logAction(action, tableName, recordId, description, null, { title: recordTitle, logged_at: new Date().toISOString() });
+  };
+
+  return { logView, logAction };
 };

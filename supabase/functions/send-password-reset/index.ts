@@ -88,14 +88,22 @@ serve(async (req) => {
   try {
     const { email } = await req.json();
     
-    console.log("Password reset request for:", email);
+    console.log("=== Password Reset Request ===");
+    console.log("Email:", email);
+    console.log("Origin:", req.headers.get("origin"));
 
     if (!email) {
+      console.log("Error: Email not provided");
       return new Response(
         JSON.stringify({ error: "Email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Determine frontend URL from origin or use default
+    const origin = req.headers.get("origin");
+    const frontendUrl = origin || FRONTEND_URL;
+    console.log("Frontend URL:", frontendUrl);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -116,7 +124,7 @@ serve(async (req) => {
       type: "recovery",
       email: email,
       options: {
-        redirectTo: `${FRONTEND_URL}/password`,
+        redirectTo: `${frontendUrl}/reset-password`,
       },
     });
 
@@ -125,9 +133,9 @@ serve(async (req) => {
     }
 
     // Use the Supabase-generated link or create a fallback
-    const resetUrl = linkData?.properties?.action_link || `${FRONTEND_URL}/password?email=${encodeURIComponent(email)}`;
+    const resetUrl = linkData?.properties?.action_link || `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}`;
     
-    console.log("Reset URL generated");
+    console.log("Reset URL generated successfully");
 
     // Send email via Resend
     try {
@@ -143,6 +151,7 @@ serve(async (req) => {
       // Still return success for security (don't reveal if email exists)
     }
 
+    console.log("=== Password Reset Request Completed ===");
     return new Response(
       JSON.stringify({ message: "Se o email estiver cadastrado, você receberá um link de recuperação." }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

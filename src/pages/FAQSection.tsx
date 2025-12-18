@@ -44,7 +44,7 @@ interface FAQNote {
 
 export default function FAQSection() {
   const { sectionId } = useParams<{ sectionId: string }>();
-  const { logView } = useViewLogger();
+  const { logView, logAction } = useViewLogger();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<string>('colaborador');
@@ -159,7 +159,7 @@ export default function FAQSection() {
     }
   };
 
-  const handleEditNote = async (noteId: string) => {
+  const handleEditNote = async (noteId: string, oldNoteText: string) => {
     if (!editingNoteText.trim() || !selectedFaq) {
       toast.error('A nota não pode estar vazia');
       return;
@@ -173,6 +173,16 @@ export default function FAQSection() {
 
       if (error) throw error;
 
+      // Log the update action
+      await logAction(
+        'UPDATE',
+        'faq_notes',
+        noteId,
+        `Nota editada no documento: ${selectedFaq.title}`,
+        { note: oldNoteText },
+        { note: editingNoteText.trim() }
+      );
+
       toast.success('Nota atualizada!');
       setEditingNoteId(null);
       setEditingNoteText('');
@@ -183,7 +193,7 @@ export default function FAQSection() {
     }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
+  const handleDeleteNote = async (noteId: string, noteText: string) => {
     if (!selectedFaq) return;
 
     try {
@@ -193,6 +203,16 @@ export default function FAQSection() {
         .eq('id', noteId);
 
       if (error) throw error;
+
+      // Log the delete action
+      await logAction(
+        'DELETE',
+        'faq_notes',
+        noteId,
+        `Nota excluída do documento: ${selectedFaq.title}`,
+        { note: noteText },
+        null
+      );
 
       toast.success('Nota excluída!');
       loadNotes(selectedFaq.id);
@@ -573,7 +593,7 @@ export default function FAQSection() {
                                         variant="ghost"
                                         size="icon"
                                         className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                        onClick={() => handleEditNote(note.id)}
+                                        onClick={() => handleEditNote(note.id, note.note)}
                                       >
                                         <Check className="w-3.5 h-3.5" />
                                       </Button>
@@ -606,7 +626,7 @@ export default function FAQSection() {
                                         variant="ghost"
                                         size="icon"
                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                        onClick={() => handleDeleteNote(note.id)}
+                                        onClick={() => handleDeleteNote(note.id, note.note)}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </Button>
