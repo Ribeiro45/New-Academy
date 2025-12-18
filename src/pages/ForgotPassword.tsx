@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail } from "lucide-react";
 import { toast } from "sonner";
 import logoNewStandard from '@/assets/logo-newstandard.png';
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -26,12 +26,7 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email }
-      });
-
-      if (error) throw error;
-
+      await api.auth.forgotPassword(email);
       setSent(true);
       toast.success("Se o email estiver cadastrado, você receberá um link de recuperação.");
     } catch (error: any) {

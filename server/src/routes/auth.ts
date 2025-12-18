@@ -82,7 +82,7 @@ const EMAIL_CONFIG = {
   
   // Rotas
   routes: {
-    passwordReset: '/password',
+    passwordReset: '/reset-password',
     emailConfirmation: '/confirm-email',
   },
   
