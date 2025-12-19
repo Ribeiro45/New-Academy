@@ -55,48 +55,44 @@ const getPasswordResetEmailTemplate = (resetUrl: string, userName?: string) => {
   `;
 };
 
-const sendEmailWithResend = async (to: string, subject: string, html: string) => {
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "New Academy <onboarding@resend.dev>",
-      to: [to],
-      subject: subject,
-      html: html,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("Resend API error:", error);
-    throw new Error(error.message || "Failed to send email");
-  }
-
-  return await response.json();
-};
-
 serve(async (req) => {
+  console.log("========================================");
+  console.log("=== SEND-PASSWORD-RESET EDGE FUNCTION ===");
+  console.log("========================================");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email } = await req.json();
+    const body = await req.json();
+    const { email } = body;
     
-    console.log("=== Password Reset Request ===");
+    console.log("=== Request Details ===");
     console.log("Email:", email);
     console.log("Origin:", req.headers.get("origin"));
+    console.log("RESEND_API_KEY configured:", RESEND_API_KEY ? `YES (length: ${RESEND_API_KEY.length})` : "NO");
+    console.log("SUPABASE_URL:", Deno.env.get("SUPABASE_URL") ? "SET" : "NOT SET");
+    console.log("SUPABASE_SERVICE_ROLE_KEY:", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "SET" : "NOT SET");
 
     if (!email) {
-      console.log("Error: Email not provided");
+      console.log("ERROR: Email not provided");
       return new Response(
         JSON.stringify({ error: "Email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!RESEND_API_KEY) {
+      console.error("ERROR: RESEND_API_KEY is not configured!");
+      console.error("Please add RESEND_API_KEY to Supabase Edge Function secrets");
+      return new Response(
+        JSON.stringify({ error: "Email service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -111,15 +107,20 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if user exists in profiles
-    const { data: profile } = await supabase
+    console.log("Checking if user exists in profiles...");
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, full_name, email")
       .eq("email", email)
       .single();
 
-    console.log("Profile found:", profile ? "yes" : "no");
+    if (profileError) {
+      console.log("Profile lookup error:", profileError.message);
+    }
+    console.log("Profile found:", profile ? `yes (${profile.full_name || 'no name'})` : "no");
 
     // Generate reset link using Supabase Auth
+    console.log("Generating password reset link...");
     const { data: linkData, error: resetError } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email: email,
@@ -129,35 +130,74 @@ serve(async (req) => {
     });
 
     if (resetError) {
-      console.error("Error generating reset link:", resetError);
+      console.error("Error generating reset link:", resetError.message);
+      console.error("Full error:", JSON.stringify(resetError));
+    } else {
+      console.log("Reset link generated successfully");
+      console.log("Action link available:", linkData?.properties?.action_link ? "yes" : "no");
     }
 
-    // Use the Supabase-generated link or create a fallback
-    const resetUrl = linkData?.properties?.action_link || `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}`;
+    // Use the Supabase-generated link
+    const resetUrl = linkData?.properties?.action_link;
     
-    console.log("Reset URL generated successfully");
-
-    // Send email via Resend
-    try {
-      const emailResponse = await sendEmailWithResend(
-        email,
-        "Recuperação de Senha - New Academy",
-        getPasswordResetEmailTemplate(resetUrl, profile?.full_name || undefined)
+    if (!resetUrl) {
+      console.error("No action link generated - user may not exist in auth.users");
+      // Still return success for security
+      return new Response(
+        JSON.stringify({ message: "Se o email estiver cadastrado, você receberá um link de recuperação." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-
-      console.log("Email sent successfully:", emailResponse);
-    } catch (emailError: any) {
-      console.error("Error sending email:", emailError);
-      // Still return success for security (don't reveal if email exists)
     }
 
-    console.log("=== Password Reset Request Completed ===");
+    console.log("Reset URL:", resetUrl.substring(0, 50) + "...");
+
+    // Send email via Resend API directly
+    console.log("=== Sending Email via Resend ===");
+
+    try {
+      const resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "New Academy <onboarding@resend.dev>",
+          to: [email],
+          subject: "Recuperação de Senha - New Academy",
+          html: getPasswordResetEmailTemplate(resetUrl, profile?.full_name || undefined),
+        }),
+      });
+
+      const resendData = await resendResponse.json();
+      console.log("Resend response status:", resendResponse.status);
+      console.log("Resend response:", JSON.stringify(resendData));
+
+      if (!resendResponse.ok) {
+        console.error("Resend API error:", resendData);
+      } else {
+        console.log("Email sent successfully! ID:", resendData.id);
+      }
+    } catch (emailError: any) {
+      console.error("Error sending email via Resend:");
+      console.error("Message:", emailError.message);
+    }
+
+    console.log("========================================");
+    console.log("=== Request Completed Successfully ===");
+    console.log("========================================");
+
     return new Response(
       JSON.stringify({ message: "Se o email estiver cadastrado, você receberá um link de recuperação." }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("Error in send-password-reset function:", error);
+    console.error("========================================");
+    console.error("=== CRITICAL ERROR ===");
+    console.error("Message:", error.message);
+    console.error("Stack:", error.stack);
+    console.error("========================================");
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
