@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Trash2, Plus, BookOpen, Layers, Award } from 'lucide-react';
+import { Trash2, Plus, BookOpen, Layers, Award, Pencil } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +44,8 @@ function AdminQuizzes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [answerDialogOpen, setAnswerDialogOpen] = useState(false);
+  const [editQuestionDialogOpen, setEditQuestionDialogOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
   const [quizType, setQuizType] = useState<'lesson' | 'module' | 'final'>('lesson');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,6 +64,14 @@ function AdminQuizzes() {
   });
 
   const questionForm = useForm({
+    resolver: zodResolver(questionSchema),
+    defaultValues: {
+      question: '',
+      order_index: 0,
+    },
+  });
+
+  const editQuestionForm = useForm({
     resolver: zodResolver(questionSchema),
     defaultValues: {
       question: '',
@@ -321,6 +331,34 @@ function AdminQuizzes() {
     }
   };
 
+  const handleEditQuestion = (question: any) => {
+    setEditingQuestion(question);
+    editQuestionForm.reset({
+      question: question.question,
+      order_index: question.order_index,
+    });
+    setEditQuestionDialogOpen(true);
+  };
+
+  const onSubmitEditQuestion = async (values: any) => {
+    const { error } = await supabase
+      .from('quiz_questions')
+      .update({
+        question: values.question,
+        order_index: values.order_index,
+      })
+      .eq('id', editingQuestion.id);
+
+    if (error) {
+      toast.error('Erro ao atualizar questão');
+    } else {
+      toast.success('Questão atualizada!');
+      fetchQuestions(selectedQuiz.id);
+      setEditQuestionDialogOpen(false);
+      setEditingQuestion(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <main className="w-full">
@@ -572,13 +610,22 @@ function AdminQuizzes() {
                     <div key={q.id} className="border rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-start">
                         <p className="font-medium">{q.question}</p>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteClick('question', q.id, q.question)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditQuestion(q)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteClick('question', q.id, q.question)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="pl-4 space-y-1">
                         {q.answers?.map((a: any) => (
@@ -663,6 +710,31 @@ function AdminQuizzes() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Edit Question Dialog */}
+        <Dialog open={editQuestionDialogOpen} onOpenChange={setEditQuestionDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Questão</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={editQuestionForm.handleSubmit(onSubmitEditQuestion)} className="space-y-4">
+              <div>
+                <Label>Questão</Label>
+                <Input {...editQuestionForm.register('question')} />
+              </div>
+              <div>
+                <Label>Ordem</Label>
+                <Input
+                  type="number"
+                  {...editQuestionForm.register('order_index', { valueAsNumber: true })}
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Salvar Alterações
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
