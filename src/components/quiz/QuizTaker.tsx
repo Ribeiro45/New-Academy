@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import api from '@/lib/api';
 
 interface QuizTakerProps {
   lessonId: string;
@@ -88,28 +89,20 @@ export const QuizTaker = ({ lessonId, onComplete }: QuizTakerProps) => {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     setIsSubmitting(true);
 
     try {
-      // Use the secure Edge Function to grade the quiz
-      const { data, error } = await supabase.functions.invoke('grade-quiz', {
-        body: {
-          quizId: quiz.id,
-          answers: userAnswers,
-        },
-      });
+      // Convert userAnswers to the format expected by the API
+      const responses = Object.entries(userAnswers).map(([questionId, answerId]) => ({
+        questionId,
+        answerId,
+      }));
 
-      if (error) {
-        console.error('Quiz grading error:', error);
-        toast.error('Erro ao processar resposta');
-        setIsSubmitting(false);
-        return;
-      }
+      // Use the backend API to submit the quiz
+      const data = await api.quizzes.submit(quiz.id, responses);
 
-      const { score, passed, correctCount, totalQuestions, attemptCount: newAttemptCount } = data;
+      const { score, passed, correctCount, totalQuestions } = data;
+      const newAttemptCount = attemptCount + 1;
 
       setResult({ score, passed, correctCount, total: totalQuestions });
       setSubmitted(true);
@@ -120,31 +113,34 @@ export const QuizTaker = ({ lessonId, onComplete }: QuizTakerProps) => {
         setTimeout(() => onComplete(), 2000);
       } else {
         if (newAttemptCount >= 2) {
-          // Reset lesson progress
-          await supabase
-            .from('user_progress')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('lesson_id', lessonId);
-
-          // Delete quiz attempts and responses to allow retaking
-          const { data: attemptsToDelete } = await supabase
-            .from('user_quiz_attempts')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('quiz_id', quiz.id);
-
-          if (attemptsToDelete && attemptsToDelete.length > 0) {
+          // Reset lesson progress via Supabase (user can do this directly)
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
             await supabase
-              .from('user_quiz_responses')
-              .delete()
-              .in('attempt_id', attemptsToDelete.map(a => a.id));
-
-            await supabase
-              .from('user_quiz_attempts')
+              .from('user_progress')
               .delete()
               .eq('user_id', user.id)
+              .eq('lesson_id', lessonId);
+
+            // Delete quiz attempts and responses to allow retaking
+            const { data: attemptsToDelete } = await supabase
+              .from('user_quiz_attempts')
+              .select('id')
+              .eq('user_id', user.id)
               .eq('quiz_id', quiz.id);
+
+            if (attemptsToDelete && attemptsToDelete.length > 0) {
+              await supabase
+                .from('user_quiz_responses')
+                .delete()
+                .in('attempt_id', attemptsToDelete.map(a => a.id));
+
+              await supabase
+                .from('user_quiz_attempts')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('quiz_id', quiz.id);
+            }
           }
 
           setMaxAttemptsReached(true);

@@ -100,56 +100,81 @@ const EMAIL_CONFIG = {
 
 // Função para enviar email via Resend
 const sendEmail = async (to: string, subject: string, html: string) => {
+  console.log('========================================');
   console.log('=== SENDING EMAIL VIA RESEND ===');
+  console.log('========================================');
   console.log('To:', to);
   console.log('Subject:', subject);
-  console.log('RESEND_API_KEY:', RESEND_API_KEY ? '***SET***' : 'NOT SET');
+  console.log('RESEND_API_KEY:', RESEND_API_KEY ? `***SET*** (length: ${RESEND_API_KEY.length})` : 'NOT SET');
+  console.log('RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL || 'NOT SET (using default)');
+  console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'NOT SET');
   
   if (!RESEND_API_KEY) {
-    console.error('RESEND_API_KEY not configured. Email will be logged to console.');
-    console.log('=== EMAIL (DEV MODE - NO RESEND KEY) ===');
+    console.error('========================================');
+    console.error('RESEND_API_KEY not configured!');
+    console.error('Email will NOT be sent.');
+    console.error('========================================');
+    console.log('=== EMAIL CONTENT (DEV MODE) ===');
     console.log('To:', to);
     console.log('Subject:', subject);
-    console.log('HTML:', html.substring(0, 200) + '...');
-    console.log('=========================================');
+    console.log('HTML Preview:', html.substring(0, 500) + '...');
+    console.log('================================');
     return false;
   }
   
   const fromName = EMAIL_CONFIG.from.name;
   const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   
+  console.log('From:', `${fromName} <${fromEmail}>`);
+  
   try {
+    const requestBody = {
+      from: `${fromName} <${fromEmail}>`,
+      to: [to],
+      subject: subject,
+      html: html,
+    };
+    
+    console.log('Request body:', JSON.stringify({ ...requestBody, html: '[TRUNCATED]' }));
+    
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [to],
-        subject: subject,
-        html: html,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    const responseText = await response.text();
+    console.log('Response status:', response.status);
+    console.log('Response body:', responseText);
+
     if (!response.ok) {
-      const error = await response.json();
+      console.error('========================================');
       console.error('=== RESEND API ERROR ===');
       console.error('Status:', response.status);
-      console.error('Error:', error);
-      console.error('========================');
+      console.error('Response:', responseText);
+      console.error('========================================');
+      console.error('POSSIBLE CAUSES:');
+      console.error('1. Invalid RESEND_API_KEY');
+      console.error('2. RESEND_FROM_EMAIL domain not verified in Resend');
+      console.error('3. Resend account limits reached');
+      console.error('========================================');
       return false;
     }
 
-    const result = await response.json();
-    console.log('Email sent successfully via Resend!');
-    console.log('Result:', result);
+    console.log('========================================');
+    console.log('=== EMAIL SENT SUCCESSFULLY ===');
+    console.log('Result:', responseText);
+    console.log('========================================');
     return true;
   } catch (error: any) {
-    console.error('=== RESEND ERROR ===');
+    console.error('========================================');
+    console.error('=== RESEND NETWORK ERROR ===');
     console.error('Error:', error.message);
-    console.error('====================');
+    console.error('Stack:', error.stack);
+    console.error('========================================');
     return false;
   }
 };
