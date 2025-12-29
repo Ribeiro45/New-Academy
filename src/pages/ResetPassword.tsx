@@ -21,43 +21,62 @@ const ResetPassword = () => {
 
   // Check if user has a valid recovery session
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    // Listen for auth state changes FIRST (recovery link triggers this)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change:", event, !!session);
+      
+      // PASSWORD_RECOVERY is the key event when user clicks reset link
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log("PASSWORD_RECOVERY event detected - allowing password reset");
+        setHasSession(true);
+        setChecking(false);
+        clearTimeout(timeoutId);
+      } else if (event === 'SIGNED_IN' && session) {
+        // User might already be signed in via the recovery flow
+        console.log("SIGNED_IN event with session - allowing password reset");
+        setHasSession(true);
+        setChecking(false);
+        clearTimeout(timeoutId);
+      }
+    });
+
+    // Check for existing session after listener is set up
     const checkSession = async () => {
       try {
-        // Supabase automatically handles the recovery token from the URL hash
         const { data: { session }, error } = await supabase.auth.getSession();
         
         console.log("Recovery session check:", { session: !!session, error });
         
-        if (session) {
+        // If we have a session and URL contains recovery tokens, allow reset
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hasRecoveryToken = hashParams.get('type') === 'recovery' || 
+                                 hashParams.get('access_token') !== null;
+        
+        if (session || hasRecoveryToken) {
+          console.log("Valid session or recovery token found");
           setHasSession(true);
-        } else {
-          setHasSession(false);
+          setChecking(false);
         }
       } catch (error) {
         console.error("Error checking session:", error);
-        setHasSession(false);
-      } finally {
-        setChecking(false);
       }
     };
 
-    // Listen for auth state changes (recovery link triggers this)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change:", event, !!session);
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        setHasSession(true);
-        setChecking(false);
-      } else if (session) {
-        setHasSession(true);
-        setChecking(false);
-      }
-    });
-
-    checkSession();
+    // Give Supabase time to process the URL hash tokens
+    timeoutId = setTimeout(() => {
+      checkSession().then(() => {
+        // If still no session after check, wait a bit more for auth state change
+        setTimeout(() => {
+          setChecking(false);
+        }, 1000);
+      });
+    }, 500);
 
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, []);
 
