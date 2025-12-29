@@ -26,16 +26,16 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      console.log("Sending password reset request via Supabase Edge Function...");
+      console.log("Sending password reset request via Supabase Auth...");
       
-      const { data, error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email },
+      // Use Supabase Auth native password reset
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
-      console.log("Response:", { data, error });
-
       if (error) {
-        console.error("Edge function error:", error);
+        console.error("Supabase Auth error:", error);
+        // Don't reveal if email exists for security
       }
 
       setSent(true);

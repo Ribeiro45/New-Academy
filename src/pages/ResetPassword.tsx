@@ -1,23 +1,65 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle, Loader2 } from "lucide-react";
 import logoNewStandard from '@/assets/logo-newstandard.png';
-import { api } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
   
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  // Check if user has a valid recovery session
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        // Supabase automatically handles the recovery token from the URL hash
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log("Recovery session check:", { session: !!session, error });
+        
+        if (session) {
+          setHasSession(true);
+        } else {
+          setHasSession(false);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        setHasSession(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    // Listen for auth state changes (recovery link triggers this)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change:", event, !!session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setHasSession(true);
+        setChecking(false);
+      } else if (session) {
+        setHasSession(true);
+        setChecking(false);
+      }
+    });
+
+    checkSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,16 +74,23 @@ const ResetPassword = () => {
       return;
     }
 
-    if (!token) {
-      toast.error("Token de recuperação inválido");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      await api.auth.resetPassword(token, newPassword);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error("Error updating password:", error);
+        toast.error(error.message || "Erro ao redefinir senha");
+        return;
+      }
+
       toast.success("Senha alterada com sucesso!");
+      
+      // Sign out and redirect to login
+      await supabase.auth.signOut();
       navigate("/auth");
     } catch (error: any) {
       console.error('Error resetting password:', error);
@@ -51,8 +100,30 @@ const ResetPassword = () => {
     }
   };
 
-  // Se não tem token, mostrar erro
-  if (!token) {
+  // Loading state while checking session
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary via-primary-glow to-accent relative overflow-hidden flex items-center justify-center p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary-glow/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+
+        <div className="absolute top-6 left-6">
+          <img src={logoNewStandard} alt="New Academy" className="h-12 w-auto object-contain" />
+        </div>
+
+        <Card className="w-full max-w-md relative z-10 shadow-elegant">
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No valid session - show error
+  if (!hasSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary via-primary-glow to-accent relative overflow-hidden flex items-center justify-center p-4">
         <div className="absolute inset-0 overflow-hidden">
