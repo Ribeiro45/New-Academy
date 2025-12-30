@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Trash2, Plus, BookOpen, Layers, Award, Pencil } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -50,6 +51,7 @@ function AdminQuizzes() {
   const [quizType, setQuizType] = useState<'lesson' | 'module' | 'final'>('lesson');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState<{ type: 'quiz' | 'question' | 'answer', id: string, name: string } | null>(null);
+  const [answerSubmitting, setAnswerSubmitting] = useState(false);
 
   const quizForm = useForm<z.infer<typeof quizSchema>>({
     resolver: zodResolver(quizSchema),
@@ -314,20 +316,47 @@ function AdminQuizzes() {
     }
   };
 
+  // Handle opening the answer dialog
+  const handleOpenAnswerDialog = (question: any) => {
+    setSelectedQuestion(question);
+    answerForm.reset({ answer: '', is_correct: false });
+    setAnswerDialogOpen(true);
+  };
+
   const onSubmitAnswer = async (values: any) => {
-    const { error } = await supabase.from('quiz_answers').insert([
-      {
-        question_id: selectedQuestion.id,
-        ...values,
-      },
-    ]);
-    if (error) {
-      toast.error('Erro ao criar resposta');
-    } else {
+    // Validate that we have a selected question
+    if (!selectedQuestion?.id) {
+      toast.error('Erro: Nenhuma questão selecionada. Feche o diálogo e tente novamente.');
+      return;
+    }
+
+    setAnswerSubmitting(true);
+
+    try {
+      const { error } = await supabase.from('quiz_answers').insert([
+        {
+          question_id: selectedQuestion.id,
+          answer: values.answer,
+          is_correct: values.is_correct,
+        },
+      ]);
+
+      if (error) {
+        console.error('Error creating answer:', error);
+        toast.error(`Erro ao criar resposta: ${error.message}`);
+        return;
+      }
+
       toast.success('Resposta criada!');
       fetchQuestions(selectedQuiz.id);
       setAnswerDialogOpen(false);
+      setSelectedQuestion(null);
       answerForm.reset();
+    } catch (err: any) {
+      console.error('Submit answer error:', err);
+      toast.error(`Erro ao criar resposta: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setAnswerSubmitting(false);
     }
   };
 
@@ -645,41 +674,15 @@ function AdminQuizzes() {
                             </Button>
                           </div>
                         ))}
-                        <Dialog open={answerDialogOpen} onOpenChange={setAnswerDialogOpen}>
-                          <DialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full mt-2"
-                              onClick={() => setSelectedQuestion(q)}
-                            >
-                              <Plus className="w-3 h-3 mr-2" />
-                              Adicionar Resposta
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Nova Resposta</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={answerForm.handleSubmit(onSubmitAnswer)} className="space-y-4">
-                              <div>
-                                <Label>Resposta</Label>
-                                <Input {...answerForm.register('answer')} />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  {...answerForm.register('is_correct')}
-                                  className="w-4 h-4"
-                                />
-                                <Label>Resposta Correta</Label>
-                              </div>
-                              <Button type="submit" className="w-full">
-                                Criar Resposta
-                              </Button>
-                            </form>
-                          </DialogContent>
-                        </Dialog>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-2"
+                          onClick={() => handleOpenAnswerDialog(q)}
+                        >
+                          <Plus className="w-3 h-3 mr-2" />
+                          Adicionar Resposta
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -688,6 +691,48 @@ function AdminQuizzes() {
             )}
           </div>
         </div>
+
+        {/* Single Answer Dialog - outside the map */}
+        <Dialog 
+          open={answerDialogOpen} 
+          onOpenChange={(open) => {
+            setAnswerDialogOpen(open);
+            if (!open) {
+              setSelectedQuestion(null);
+              answerForm.reset();
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova Resposta</DialogTitle>
+              {selectedQuestion && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Para a questão: {selectedQuestion.question}
+                </p>
+              )}
+            </DialogHeader>
+            <form onSubmit={answerForm.handleSubmit(onSubmitAnswer)} className="space-y-4">
+              <div>
+                <Label>Resposta</Label>
+                <Input {...answerForm.register('answer')} />
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="is_correct"
+                  checked={answerForm.watch('is_correct')}
+                  onCheckedChange={(checked) => answerForm.setValue('is_correct', !!checked)}
+                />
+                <Label htmlFor="is_correct" className="cursor-pointer">
+                  Resposta Correta
+                </Label>
+              </div>
+              <Button type="submit" className="w-full" disabled={answerSubmitting}>
+                {answerSubmitting ? 'Criando...' : 'Criar Resposta'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
