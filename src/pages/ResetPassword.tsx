@@ -18,65 +18,111 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Check if user has a valid recovery session
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let isMounted = true;
     
-    // Listen for auth state changes FIRST (recovery link triggers this)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change:", event, !!session);
-      
-      // PASSWORD_RECOVERY is the key event when user clicks reset link
-      if (event === 'PASSWORD_RECOVERY') {
-        console.log("PASSWORD_RECOVERY event detected - allowing password reset");
-        setHasSession(true);
-        setChecking(false);
-        clearTimeout(timeoutId);
-      } else if (event === 'SIGNED_IN' && session) {
-        // User might already be signed in via the recovery flow
-        console.log("SIGNED_IN event with session - allowing password reset");
-        setHasSession(true);
-        setChecking(false);
-        clearTimeout(timeoutId);
-      }
-    });
-
-    // Check for existing session after listener is set up
-    const checkSession = async () => {
+    const initializeRecovery = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log("Recovery session check:", { session: !!session, error });
-        
-        // If we have a session and URL contains recovery tokens, allow reset
+        // Check URL for PKCE code (query string) or hash tokens
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const hasRecoveryToken = hashParams.get('type') === 'recovery' || 
-                                 hashParams.get('access_token') !== null;
+        const accessToken = hashParams.get('access_token');
+        const hashType = hashParams.get('type');
         
-        if (session || hasRecoveryToken) {
-          console.log("Valid session or recovery token found");
+        console.log("Recovery init:", { 
+          hasCode: !!code, 
+          hasAccessToken: !!accessToken, 
+          hashType,
+          fullUrl: window.location.href 
+        });
+
+        // PKCE flow: exchange code for session
+        if (code) {
+          console.log("PKCE flow detected - exchanging code for session");
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (error) {
+            console.error("Error exchanging code:", error);
+            if (isMounted) {
+              setErrorMessage("O link de recuperação expirou ou já foi utilizado.");
+              setHasSession(false);
+              setChecking(false);
+            }
+            return;
+          }
+          
+          if (data.session) {
+            console.log("PKCE session established successfully");
+            if (isMounted) {
+              setHasSession(true);
+              setChecking(false);
+            }
+            return;
+          }
+        }
+
+        // Hash-based flow (implicit): check for access_token in hash
+        if (accessToken && hashType === 'recovery') {
+          console.log("Hash-based recovery detected");
+          // Supabase will automatically pick up the hash tokens
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && isMounted) {
+            console.log("Session established from hash tokens");
+            setHasSession(true);
+            setChecking(false);
+            return;
+          }
+        }
+
+        // Set up listener for auth state changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log("Auth state change:", event, !!session);
+          
+          if (!isMounted) return;
+          
+          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+            console.log("Recovery session established via auth state change");
+            setHasSession(true);
+            setChecking(false);
+          }
+        });
+
+        // Final check: see if there's already a session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && isMounted) {
+          console.log("Existing session found");
           setHasSession(true);
           setChecking(false);
+          return;
         }
+
+        // Wait a bit more for auth state to settle (Supabase processes hash async)
+        setTimeout(() => {
+          if (isMounted && checking) {
+            console.log("Timeout reached - no session established");
+            setChecking(false);
+          }
+        }, 2000);
+
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
-        console.error("Error checking session:", error);
+        console.error("Error in recovery init:", error);
+        if (isMounted) {
+          setErrorMessage("Ocorreu um erro ao processar o link de recuperação.");
+          setChecking(false);
+        }
       }
     };
 
-    // Give Supabase time to process the URL hash tokens
-    timeoutId = setTimeout(() => {
-      checkSession().then(() => {
-        // If still no session after check, wait a bit more for auth state change
-        setTimeout(() => {
-          setChecking(false);
-        }, 1000);
-      });
-    }, 500);
+    initializeRecovery();
 
     return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeoutId);
+      isMounted = false;
     };
   }, []);
 
@@ -133,8 +179,9 @@ const ResetPassword = () => {
         </div>
 
         <Card className="w-full max-w-md relative z-10 shadow-elegant">
-          <CardContent className="flex items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground text-sm">Verificando link de recuperação...</p>
           </CardContent>
         </Card>
       </div>
@@ -163,10 +210,13 @@ const ResetPassword = () => {
             </div>
             <CardTitle className="text-2xl text-center">Link Inválido</CardTitle>
             <CardDescription className="text-center">
-              O link de recuperação de senha é inválido ou expirou.
+              {errorMessage || "O link de recuperação de senha é inválido ou expirou."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground text-center">
+              Links de recuperação só podem ser usados uma vez e expiram em 1 hora.
+            </p>
             <Button 
               className="w-full" 
               onClick={() => navigate('/forgot-password')}
@@ -175,7 +225,7 @@ const ResetPassword = () => {
             </Button>
             <Button 
               variant="ghost" 
-              className="w-full mt-2"
+              className="w-full"
               onClick={() => navigate('/auth')}
             >
               Voltar para Login
