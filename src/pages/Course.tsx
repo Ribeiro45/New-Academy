@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, Circle, ArrowLeft, ChevronDown, Clock, BookOpen, GraduationCap, Award } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ChevronDown, Clock, BookOpen, GraduationCap, Award, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
@@ -101,6 +101,7 @@ const Course = () => {
   const [profile, setProfile] = useState<{ full_name: string; cpf: string } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
+  const [courseQuizzes, setCourseQuizzes] = useState<string[]>([]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -246,6 +247,17 @@ const Course = () => {
         setCompletedLessons(completed);
       }
 
+      // Fetch all quizzes for this course (including module and lesson quizzes)
+      const moduleIds = modulesRes.data?.map(m => m.id) || [];
+      const lessonIdsList = lessonsRes.data?.map(l => l.id) || [];
+      
+      const { data: allCourseQuizzes } = await supabase
+        .from('quizzes')
+        .select('id')
+        .or(`course_id.eq.${id},module_id.in.(${moduleIds.join(',')}),lesson_id.in.(${lessonIdsList.join(',')})`);
+      
+      setCourseQuizzes(allCourseQuizzes?.map(q => q.id) || []);
+
       // Fetch passed quizzes
       const { data: passedQuizzesData } = await supabase
         .from('user_quiz_attempts')
@@ -320,12 +332,30 @@ const Course = () => {
   };
 
   const progressPercent = lessons.length > 0 
-    ? (completedLessons.size / lessons.length) * 100 
+    ? Math.min((completedLessons.size / lessons.length) * 100, 100)
     : 0;
 
   const totalMins = lessons.reduce((acc, l) => acc + (l.duration_minutes || 0), 0);
   const totalHours = Math.floor(totalMins / 60);
   const totalMinutes = totalMins % 60;
+
+  // Verifica se pode gerar certificado: 100% progresso + todas provas passadas com 70%+
+  const canGenerateCertificate = () => {
+    // Precisa ter 100% de progresso
+    if (progressPercent < 100) return false;
+    
+    // Se não há quizzes, só precisa do progresso
+    if (courseQuizzes.length === 0) return true;
+    
+    // Verificar se passou em todos os quizzes do curso
+    for (const quizId of courseQuizzes) {
+      if (!passedQuizzes.has(quizId)) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
 
   const generateCertificate = async () => {
     if (!user || !course || !id) return;
@@ -449,7 +479,7 @@ const Course = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            {progressPercent >= 100 && (
+            {canGenerateCertificate() && (
               <Button 
                 onClick={hasCertificate ? () => setPreviewOpen(true) : generateCertificate}
                 className="w-full"
@@ -463,6 +493,17 @@ const Course = () => {
                     ? 'Visualizar Certificado' 
                     : 'Gerar Certificado'}
               </Button>
+            )}
+
+            {progressPercent >= 100 && !canGenerateCertificate() && (
+              <Card className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+                <CardContent className="py-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                  <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                    Você completou todas as aulas, mas precisa passar em todas as provas com pelo menos 70% de acertos para gerar o certificado.
+                  </p>
+                </CardContent>
+              </Card>
             )}
 
             {certificateData && (
@@ -507,18 +548,15 @@ const Course = () => {
                         </CardHeader>
                         <CardContent>
                           {completedLessons.has(currentLesson.id) ? (
-                            <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted rounded-md text-muted-foreground">
+                            <div className="flex items-center justify-center gap-2 py-3 px-4 bg-green-100 dark:bg-green-950/30 rounded-md text-green-700 dark:text-green-300">
                               <CheckCircle2 className="w-4 h-4 text-green-500" />
                               <span>Aula concluída</span>
                             </div>
                           ) : (
-                            <Button
-                              onClick={() => toggleLessonComplete(currentLesson.id)}
-                              className="w-full"
-                            >
-                              <Circle className="w-4 h-4 mr-2" />
-                              Marcar como concluída
-                            </Button>
+                            <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted rounded-md text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span>Assista pelo menos 90% do vídeo para concluir esta aula</span>
+                            </div>
                           )}
                         </CardContent>
                       </Card>
