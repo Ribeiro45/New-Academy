@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -160,143 +159,130 @@ export default function LeaderDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex w-full">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <div className="animate-pulse">Carregando...</div>
-        </main>
-      </div>
-    );
+    return <div className="p-8 animate-pulse">Carregando...</div>;
   }
 
   if (!group) {
     return (
-      <div className="min-h-screen flex w-full">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sem Grupo Atribuído</CardTitle>
-              <CardDescription>
-                Você ainda não foi atribuído como líder de nenhum grupo.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </main>
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sem Grupo Atribuído</CardTitle>
+            <CardDescription>
+              Você ainda não foi atribuído como líder de nenhum grupo.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex w-full">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Painel do Grupo</h1>
-          <p className="text-muted-foreground mb-6">
-            Acompanhe o progresso dos membros do grupo <strong>{group.name}</strong>
-          </p>
+    <div className="p-8 overflow-auto">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-2">Painel do Grupo</h1>
+        <p className="text-muted-foreground mb-6">
+          Acompanhe o progresso dos membros do grupo <strong>{group.name}</strong>
+        </p>
 
-          {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Membros</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalMembers}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Progresso Médio</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.avgProgress}%</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Certificados Emitidos</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalCertificates}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cursos Concluídos</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.completedCourses}</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Members Progress */}
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card>
-            <CardHeader>
-              <CardTitle>Progresso dos Membros</CardTitle>
-              <CardDescription>
-                Visualize o progresso individual de cada membro do seu grupo
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Membros</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {membersProgress.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Nenhum membro no grupo ainda.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {membersProgress.map((member) => (
-                    <div key={member.id} className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10">
-                        {member.avatar_url && (
-                          <AvatarImage src={member.avatar_url} alt={member.full_name || ''} />
-                        )}
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {(member.full_name || member.email || 'U').charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium truncate">
-                            {member.full_name || 'Sem nome'}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            {member.certificates > 0 && (
-                              <Badge variant="secondary" className="flex items-center gap-1">
-                                <Award className="h-3 w-3" />
-                                {member.certificates}
-                              </Badge>
-                            )}
-                            <span className="text-sm text-muted-foreground">
-                              {member.progressPercent}%
-                            </span>
-                          </div>
-                        </div>
-                        <Progress value={member.progressPercent} className="h-2" />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {member.completedLessons} de {member.totalLessons} aulas concluídas
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-2xl font-bold">{stats.totalMembers}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Progresso Médio</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.avgProgress}%</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Certificados Emitidos</CardTitle>
+              <Award className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCertificates}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cursos Concluídos</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completedCourses}</div>
             </CardContent>
           </Card>
         </div>
-      </main>
+
+        {/* Members Progress */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Progresso dos Membros</CardTitle>
+            <CardDescription>
+              Visualize o progresso individual de cada membro do seu grupo
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {membersProgress.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum membro no grupo ainda.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {membersProgress.map((member) => (
+                  <div key={member.id} className="flex items-center gap-4">
+                    <Avatar className="h-10 w-10">
+                      {member.avatar_url && (
+                        <AvatarImage src={member.avatar_url} alt={member.full_name || ''} />
+                      )}
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {(member.full_name || member.email || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-medium truncate">
+                          {member.full_name || 'Sem nome'}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {member.certificates > 0 && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Award className="h-3 w-3" />
+                              {member.certificates}
+                            </Badge>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            {member.progressPercent}%
+                          </span>
+                        </div>
+                      </div>
+                      <Progress value={member.progressPercent} className="h-2" />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {member.completedLessons} de {member.totalLessons} aulas concluídas
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
