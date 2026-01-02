@@ -146,20 +146,35 @@ export const ModuleAccordion = ({
                     );
                   })}
                   
-                  {module.hasQuiz && (
-                    <button
-                      onClick={() => onSelectModuleQuiz(module.id)}
-                      className="w-full text-left p-3 rounded-lg transition-colors flex items-start gap-3 bg-accent/10 hover:bg-accent/20 border-2 border-accent/30"
-                    >
-                      <FileCheck className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">Prova do Módulo</p>
-                        <p className="text-sm text-muted-foreground">
-                          Complete para avançar
-                        </p>
-                      </div>
-                    </button>
-                  )}
+                  {module.hasQuiz && (() => {
+                    const allModuleLessonsCompleted = module.lessons.every(l => completedLessons.has(l.id));
+                    return (
+                      <button
+                        onClick={() => allModuleLessonsCompleted && onSelectModuleQuiz(module.id)}
+                        disabled={!allModuleLessonsCompleted}
+                        className={cn(
+                          "w-full text-left p-3 rounded-lg transition-colors flex items-start gap-3 border-2",
+                          allModuleLessonsCompleted 
+                            ? "bg-accent/10 hover:bg-accent/20 border-accent/30" 
+                            : "bg-muted/50 border-muted opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {allModuleLessonsCompleted ? (
+                          <FileCheck className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">Prova do Módulo</p>
+                          <p className="text-sm text-muted-foreground">
+                            {allModuleLessonsCompleted 
+                              ? "Complete para avançar" 
+                              : "Assista 90% de todas as aulas para liberar"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })()}
                 </div>
               </AccordionContent>
             </AccordionItem>

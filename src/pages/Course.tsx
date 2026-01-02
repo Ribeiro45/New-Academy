@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, ArrowLeft, ChevronDown, Clock, BookOpen, GraduationCap, Award, AlertCircle } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ChevronDown, Clock, BookOpen, GraduationCap, Award, AlertCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
@@ -672,13 +672,24 @@ const Course = () => {
                 }}
               />
 
-              <Button
-                onClick={() => setViewMode('final-exam')}
-                variant="outline"
-                className="w-full border-2 border-primary hover:bg-primary/10"
-              >
-                Prova Final do Curso
-              </Button>
+              {isCourseComplete ? (
+                <Button
+                  onClick={() => setViewMode('final-exam')}
+                  variant="outline"
+                  className="w-full border-2 border-primary hover:bg-primary/10"
+                >
+                  Prova Final do Curso
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  className="w-full border-2 border-muted opacity-50 cursor-not-allowed"
+                >
+                  <Lock className="w-4 h-4 mr-2" />
+                  Prova Final (Assista 90% de todas as aulas)
+                </Button>
+              )}
             </div>
           </div>
         </div>
