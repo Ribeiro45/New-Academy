@@ -5,8 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, BookOpen, Award, TrendingUp } from 'lucide-react';
-
+import { Users, BookOpen, Award, TrendingUp, Trophy, Medal } from 'lucide-react';
+import { cn } from '@/lib/utils';
 type Group = {
   id: string;
   name: string;
@@ -227,6 +227,104 @@ export default function LeaderDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Top 3 Podium */}
+        {membersProgress.length >= 1 && (() => {
+          // Sort by certificates first, then by progress percentage, then by completed lessons
+          const sortedMembers = [...membersProgress].sort((a, b) => {
+            if (b.certificates !== a.certificates) return b.certificates - a.certificates;
+            if (b.progressPercent !== a.progressPercent) return b.progressPercent - a.progressPercent;
+            return b.completedLessons - a.completedLessons;
+          });
+          
+          const top3 = sortedMembers.slice(0, 3);
+          
+          const getPodiumStyle = (position: number) => {
+            switch (position) {
+              case 0: // 1st place - Gold
+                return {
+                  bgClass: 'bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 border-yellow-500/50',
+                  iconColor: 'text-yellow-500',
+                  label: '1º Lugar',
+                  icon: <Trophy className="h-6 w-6 text-yellow-500" />
+                };
+              case 1: // 2nd place - Silver
+                return {
+                  bgClass: 'bg-gradient-to-br from-gray-300/20 to-gray-500/20 border-gray-400/50',
+                  iconColor: 'text-gray-400',
+                  label: '2º Lugar',
+                  icon: <Medal className="h-6 w-6 text-gray-400" />
+                };
+              case 2: // 3rd place - Bronze
+                return {
+                  bgClass: 'bg-gradient-to-br from-orange-400/20 to-orange-700/20 border-orange-500/50',
+                  iconColor: 'text-orange-500',
+                  label: '3º Lugar',
+                  icon: <Medal className="h-6 w-6 text-orange-500" />
+                };
+              default:
+                return { bgClass: '', iconColor: '', label: '', icon: null };
+            }
+          };
+
+          return (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  Destaques do Grupo
+                </CardTitle>
+                <CardDescription>
+                  Colaboradores com melhor desempenho no curso
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  {top3.map((member, index) => {
+                    const style = getPodiumStyle(index);
+                    return (
+                      <div
+                        key={member.id}
+                        className={cn(
+                          "p-4 rounded-xl border-2 flex flex-col items-center text-center transition-all hover:scale-[1.02]",
+                          style.bgClass
+                        )}
+                      >
+                        <div className="mb-2">{style.icon}</div>
+                        <Avatar className="h-16 w-16 mb-3 ring-2 ring-offset-2 ring-offset-background" style={{ 
+                          ['--tw-ring-color' as any]: index === 0 ? 'rgb(234 179 8)' : index === 1 ? 'rgb(156 163 175)' : 'rgb(249 115 22)'
+                        }}>
+                          {member.avatar_url && (
+                            <AvatarImage src={member.avatar_url} alt={member.full_name || ''} />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                            {(member.full_name || member.email || 'U').charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <Badge variant="outline" className={cn("mb-2", style.iconColor)}>
+                          {style.label}
+                        </Badge>
+                        <p className="font-semibold truncate max-w-full">
+                          {member.full_name || 'Sem nome'}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Award className="h-4 w-4" />
+                            {member.certificates}
+                          </span>
+                          <span>{member.progressPercent}%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {member.completedLessons} aulas concluídas
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Members Progress */}
         <Card>
