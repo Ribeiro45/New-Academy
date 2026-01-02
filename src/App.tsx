@@ -33,6 +33,7 @@ import AdminFAQ from "./pages/admin/AdminFAQ";
 import AdminManagement from "./pages/admin/AdminManagement";
 import AdminLogs from "./pages/admin/AdminLogs";
 import LeaderGroup from "./pages/LeaderGroup";
+import LeaderDashboard from "./pages/admin/LeaderDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,11 +66,12 @@ const App = () => (
             <Route path="/admin/courses" element={<EditorRoute><AdminCoursesManagement /></EditorRoute>} />
             <Route path="/admin/management" element={<AdminRoute><AdminManagement /></AdminRoute>} />
             <Route path="/admin/course-access" element={<AdminRoute><AdminCourseAccess /></AdminRoute>} />
-            <Route path="/admin/faq" element={<AdminRoute><AdminFAQ /></AdminRoute>} />
+            <Route path="/admin/faq" element={<EditorRoute><AdminFAQ /></EditorRoute>} />
             <Route path="/admin/demo" element={<AdminRoute><AdminDemo /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
             <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
             <Route path="/leader/group" element={<LeaderRoute><LeaderGroup /></LeaderRoute>} />
+            <Route path="/leader/dashboard" element={<LeaderRoute><LeaderDashboard /></LeaderRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

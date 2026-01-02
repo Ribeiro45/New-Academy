@@ -245,6 +245,7 @@ export const Sidebar = () => {
 
   const leaderMenuItems = [
     { icon: Users, label: 'Meu Grupo', path: '/leader/group' },
+    { icon: Shield, label: 'Painel do Grupo', path: '/leader/dashboard' },
   ];
 
   const adminMenuItems = [
@@ -259,6 +260,7 @@ export const Sidebar = () => {
   ];
 
   const editorMenuItems = [
+    { icon: HelpCircle, label: 'Gerenciar Base de Conhecimento', path: '/admin/faq' },
   ];
 
   return (
