@@ -527,7 +527,13 @@ const Course = () => {
                 <Tabs defaultValue="video" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="video">Vídeo</TabsTrigger>
-                    <TabsTrigger value="quiz">Prova da Aula</TabsTrigger>
+                    <TabsTrigger 
+                      value="quiz" 
+                      disabled={!completedLessons.has(currentLesson.id)}
+                      className={cn(!completedLessons.has(currentLesson.id) && "opacity-50 cursor-not-allowed")}
+                    >
+                      Prova da Aula
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="video">
@@ -555,7 +561,7 @@ const Course = () => {
                           ) : (
                             <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted rounded-md text-muted-foreground">
                               <Clock className="w-4 h-4" />
-                              <span>Assista pelo menos 90% do vídeo para concluir esta aula</span>
+                              <span>Assista pelo menos 90% do vídeo para concluir esta aula e liberar a prova</span>
                             </div>
                           )}
                         </CardContent>
@@ -564,13 +570,24 @@ const Course = () => {
                   </TabsContent>
                   
                   <TabsContent value="quiz">
-                    <QuizTaker 
-                      lessonId={currentLesson.id} 
-                      onComplete={() => {
-                        toast.success("Prova da aula concluída!");
-                        loadCourse();
-                      }}
-                    />
+                    {completedLessons.has(currentLesson.id) ? (
+                      <QuizTaker 
+                        lessonId={currentLesson.id} 
+                        onComplete={() => {
+                          toast.success("Prova da aula concluída!");
+                          loadCourse();
+                        }}
+                      />
+                    ) : (
+                      <Card>
+                        <CardContent className="py-8 text-center">
+                          <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">
+                            Assista pelo menos 90% do vídeo para liberar a prova desta aula.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
                   </TabsContent>
                 </Tabs>
               )}
