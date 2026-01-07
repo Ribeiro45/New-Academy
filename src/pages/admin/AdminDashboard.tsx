@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { Users, BookOpen, Award } from 'lucide-react';
+import { Users, BookOpen, Award, Trophy, Medal } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface UserProgress {
   user_id: string;
@@ -17,6 +18,7 @@ interface UserProgress {
 export default function AdminDashboard() {
   const [usersProgress, setUsersProgress] = useState<UserProgress[]>([]);
   const [stats, setStats] = useState({ totalUsers: 0, totalCourses: 0, totalCertificates: 0 });
+  const [top3Users, setTop3Users] = useState<UserProgress[]>([]);
 
   useEffect(() => {
     fetchUsersProgress();
@@ -24,6 +26,14 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchUsersProgress = async () => {
+    // Buscar IDs dos admins para excluí-los do pódio
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin');
+
+    const adminIds = new Set(adminRoles?.map(r => r.user_id) || []);
+
     const { data: profiles } = await supabase.from('profiles').select('id, full_name');
     const { data: lessons } = await supabase.from('lessons').select('id');
     
@@ -52,6 +62,19 @@ export default function AdminDashboard() {
     }
 
     setUsersProgress(progressData);
+
+    // Calcular top 3 excluindo admins
+    const nonAdminUsers = progressData.filter(u => !adminIds.has(u.user_id));
+    const sorted = [...nonAdminUsers].sort((a, b) => {
+      if (b.certificates_count !== a.certificates_count) {
+        return b.certificates_count - a.certificates_count;
+      }
+      if (b.progress_percentage !== a.progress_percentage) {
+        return b.progress_percentage - a.progress_percentage;
+      }
+      return b.completed_lessons - a.completed_lessons;
+    });
+    setTop3Users(sorted.slice(0, 3));
   };
 
   const fetchStats = async () => {
@@ -64,6 +87,32 @@ export default function AdminDashboard() {
       totalCourses: courses?.length || 0,
       totalCertificates: certificates?.length || 0,
     });
+  };
+
+  const getPodiumStyle = (position: number) => {
+    switch (position) {
+      case 0:
+        return 'border-yellow-500 bg-yellow-500/10';
+      case 1:
+        return 'border-gray-400 bg-gray-400/10';
+      case 2:
+        return 'border-amber-700 bg-amber-700/10';
+      default:
+        return 'border-border bg-card';
+    }
+  };
+
+  const getPodiumIcon = (position: number) => {
+    switch (position) {
+      case 0:
+        return <Trophy className="h-8 w-8 text-yellow-500" />;
+      case 1:
+        return <Medal className="h-8 w-8 text-gray-400" />;
+      case 2:
+        return <Medal className="h-8 w-8 text-amber-700" />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -105,6 +154,40 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Pódio de Destaque - Geral */}
+          {top3Users.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-6 w-6 text-yellow-500" />
+                  Pódio de Destaque - Geral
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {top3Users.map((user, index) => (
+                    <div
+                      key={user.user_id}
+                      className={cn(
+                        'flex flex-col items-center p-6 rounded-lg border-2 transition-all',
+                        getPodiumStyle(index)
+                      )}
+                    >
+                      <div className="mb-3">{getPodiumIcon(index)}</div>
+                      <span className="text-2xl font-bold mb-2">{index + 1}º</span>
+                      <h3 className="font-semibold text-lg text-center mb-3">{user.full_name}</h3>
+                      <div className="text-sm text-muted-foreground space-y-1 text-center">
+                        <p><Award className="inline h-4 w-4 mr-1" />{user.certificates_count} certificado(s)</p>
+                        <p>{user.progress_percentage}% de progresso</p>
+                        <p>{user.completed_lessons} aulas concluídas</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
