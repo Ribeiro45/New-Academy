@@ -412,7 +412,7 @@ export const Sidebar = () => {
                   </Link>
                 );
               })}
-              {isEditor && editorMenuItems.map((item) => {
+              {isEditor && !isAdmin && editorMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 return (
